@@ -1,4 +1,23 @@
 const T={team:"Team",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes"};
+
+function gristRows(data, tableName="") {
+  if (Array.isArray(data)) return data;
+  if (!data || typeof data !== "object") {
+    throw new Error(`Format inattendu retourné par ${tableName || "Grist"}`);
+  }
+  const keys = Object.keys(data).filter(k => Array.isArray(data[k]));
+  if (!keys.length) {
+    throw new Error(`Aucune colonne exploitable retournée par ${tableName || "Grist"}`);
+  }
+  const length = Math.max(...keys.map(k => data[k].length));
+  const rows = [];
+  for (let i = 0; i < length; i++) {
+    const row = {};
+    for (const key of keys) row[key] = data[key][i];
+    rows.push(row);
+  }
+  return rows;
+}
 const S={team:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[]};
 const $=id=>document.getElementById(id),num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d,esc=(s="")=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const date=v=>typeof v==="number"?new Date(v*1000):Array.isArray(v)&&v[0]==="D"?new Date(v[1]*1000):new Date(v);
@@ -6,7 +25,30 @@ const iso=v=>{const d=date(v);return `${d.getFullYear()}-${String(d.getMonth()+1
 const epoch=s=>Math.floor(new Date(`${s}T12:00:00`).getTime()/1000),resource=id=>S.team.find(x=>x.id===Number(id)),motif=id=>S.motifs.find(x=>x.id===Number(id));
 const notify=m=>{const t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1800)};
 function defaults(){const a=new Date(),b=new Date(a);b.setDate(b.getDate()+30);$("from").value=iso(a);$("to").value=iso(b);$("entryFrom").value=iso(a);$("entryTo").value=iso(a)}
-async function load(){const [a,b,c,d]=await Promise.all([grist.docApi.fetchTable(T.team),grist.docApi.fetchTable(T.motifs),grist.docApi.fetchTable(T.presence),grist.docApi.fetchTable(T.alerts)]);S.team=a;S.motifs=b;S.presence=c;S.params=d;if(!S.visible.size)b.filter(x=>x.Actif!==false).forEach(x=>S.visible.add(x.id));$("sync").textContent="Synchronisé";render()}
+async function load(){
+  $("sync").textContent="Synchronisation…";
+  try {
+    const available = await grist.docApi.listTables();
+    const missing = Object.values(T).filter(name => !available.includes(name));
+    if (missing.length) throw new Error(`Tables Grist absentes : ${missing.join(", ")}`);
+    const [a,b,c,d]=await Promise.all([
+      grist.docApi.fetchTable(T.team),
+      grist.docApi.fetchTable(T.motifs),
+      grist.docApi.fetchTable(T.presence),
+      grist.docApi.fetchTable(T.alerts)
+    ]);
+    S.team=gristRows(a,"Team"); S.motifs=gristRows(b,"Motifs_RH"); S.presence=gristRows(c,"Presences"); S.params=gristRows(d,"Parametres_Alertes");
+    if(!S.visible.size) S.motifs.filter(x=>x.Actif!==false).forEach(x=>S.visible.add(x.id));
+    $("sync").textContent=`Synchronisé · Ressources ${S.team.length} · Présences ${S.presence.length}`;
+    render();
+    if (!S.team.length) notify("La table Team est vide : aucune ressource à afficher");
+  } catch(e) {
+    console.error(e);
+    $("sync").textContent="Erreur de chargement";
+    notify(e.message||String(e));
+    throw e;
+  }
+}
 function activeTeam(){return S.team.filter(x=>x.actif!==false)}
 function render(){const opts=activeTeam().sort((a,b)=>String(a.nom).localeCompare(String(b.nom))).map(x=>`<option value="${x.id}">${esc(x.nom)}</option>`).join("");$("person").innerHTML='<option value="">Toute l’équipe</option>'+opts;$("entryPerson").innerHTML='<option value="">Choisir…</option>'+opts;$("entryMotif").innerHTML=S.motifs.filter(x=>x.Actif!==false&&!["F","WE"].includes(x.Code)).map(x=>`<option value="${x.id}">${esc(x.Code)} — ${esc(x.Libelle)}</option>`).join("");chips();pilotage();recent();alerts()}
 function chips(){$("chips").innerHTML=S.motifs.filter(x=>x.Actif!==false&&!["F","WE"].includes(x.Code)).map(x=>`<button class="chip ${S.visible.has(x.id)?"on":"off"}" data-id="${x.id}">${esc(x.Code)}</button>`).join("");$("chips").querySelectorAll("button").forEach(b=>b.onclick=()=>{const id=Number(b.dataset.id);S.visible.has(id)?S.visible.delete(id):S.visible.add(id);chips();pilotage()})}

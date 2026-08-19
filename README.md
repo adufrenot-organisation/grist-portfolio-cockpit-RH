@@ -1,13 +1,14 @@
-# Widget Opérations RH/PMO V2
+# RH / PMO — Opérations V2.1
 
-Utilise directement les tables du modèle PMO unifié :
+Correctifs V2.1 :
+- diagnostic des tables Grist avant chargement ;
+- indication du nombre de ressources et de présences chargées ;
+- message explicite si `Team` est vide ;
+- navigation et saisie conservées.
 
-- `Team`
-- `Motifs_RH`
-- `Presences`
-- `Parametres_Alertes`
+Tables : `Team`, `Motifs_RH`, `Presences`, `Parametres_Alertes`.
 
-`Presences.Ressource` est une référence Grist vers `Team`.
-`Presences.Motif` est une référence Grist vers `Motifs_RH`.
 
-Le widget nécessite Full document access pour saisir/modifier les présences.
+## Correctif V2.2 — fetchTable
+
+`grist.docApi.fetchTable()` renvoie un objet orienté colonnes. La V2.2 le convertit en tableau de lignes avant utilisation, y compris pour les colonnes de référence.
