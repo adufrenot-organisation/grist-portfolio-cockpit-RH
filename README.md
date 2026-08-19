@@ -1,15 +1,7 @@
-# Cockpit RH/PMO V2.4
+# RH Capacité — Cockpit V3
 
-Corrections :
-- normalisation du format `fetchTable()` (tableau ou objet colonne-par-colonne) ;
-- chargement indépendant de Team, Motifs_RH, Presences et Parametres_Alertes ;
-- onglet Diagnostic séparé ;
-- journal des erreurs de session ;
-- aucune erreur technique affichée sur l'écran Pilotage ;
-- menu initialisé indépendamment des données.
+Nouvelle saisie de masse calendrier intégrée au module Cockpit.
 
-Le widget utilise directement :
-- Team
-- Motifs_RH
-- Presences
-- Parametres_Alertes
+Fonctions : filtre équipe, ressources actives, mois glissant, motif sélectionné en amont, saisie multi-cellules, statut et commentaire communs, sauvegarde en masse dans `Presences`.
+
+Le module Administration reste séparé et continue à gérer Team, Team_ref, Motifs_RH et Parametres_Alertes.
