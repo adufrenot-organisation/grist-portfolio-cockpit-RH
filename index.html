@@ -2,10 +2,30 @@
 <div id="app"><aside class="sidebar"><div class="brand"><div class="mark">RH</div><div><strong>Capacité</strong><small>Cockpit RH</small></div></div><nav><button class="nav-item active" data-view="pilotage">Cockpit</button><button class="nav-item" data-view="previsionnel">Prévisionnel</button><button class="nav-item" data-view="saisie">Saisie des temps</button><button class="nav-item" data-view="imports">Imports</button><button class="nav-item" data-view="alertes">Alertes</button><button class="nav-item" data-view="rapports">Rapports</button></nav><div class="sidebar-sep"></div><div class="sidebar-label">Administration</div><div class="admin-hint">Le paramétrage reste dans le widget Administration séparé.</div><div class="sync" id="sync">Connexion…</div></aside>
 <main class="main"><header class="topbar"><div><h1 id="title">Pilotage</h1><p id="subtitle">Disponibilité et prévisionnel</p></div><button class="btn secondary" id="refresh">Actualiser</button></header>
 <section class="view active" id="pilotage"><div class="toolbar card"><label>Du<input id="from" type="date"></label><label>Au<input id="to" type="date"></label><label>Ressource<select id="person"><option value="">Toute l'équipe</option></select></label><div class="chips" id="chips"></div></div>
-<div class="kpis"><div class="metric"><span>Taux de présence</span><strong id="presenceKpi">—</strong><small id="presenceSub"></small></div><div class="metric"><span>Absence</span><strong id="absenceKpi">—</strong><small>jours équivalents</small></div><div class="metric"><span>Télétravail</span><strong id="remoteKpi">—</strong><small>jours</small></div><div class="metric"><span>Formation</span><strong id="formationKpi">—</strong><small>jours</small></div></div>
+<div class="kpis">
+<div class="metric"><span class="metric-title">Taux de présence <button class="info-dot" type="button" aria-label="Calcul du taux de présence" data-tip="Présence équivalente ÷ jours-ressources travaillables × 100. P, TL, TE/TLE et FO comptent selon leur équivalent de présence. A compte comme absence ; les demi-journées valent 0,5. WE, F et les motifs exclus de la capacité ne sont pas au dénominateur.">ⓘ</button></span><strong id="presenceKpi">—</strong><small id="presenceSub"></small></div>
+<div class="metric"><span class="metric-title">Absence <button class="info-dot" type="button" aria-label="Calcul des absences" data-tip="Somme des jours d’absence équivalents sur la période et le périmètre sélectionnés. A = 1 jour ; 1/2 M et 1/2 AM = 0,5 jour. WE et F ne sont pas des absences.">ⓘ</button></span><strong id="absenceKpi">—</strong><small>jours équivalents</small></div>
+<div class="metric"><span class="metric-title">Télétravail <button class="info-dot" type="button" aria-label="Calcul du télétravail" data-tip="Somme des journées portant les motifs TL, TE ou TLE sur la période et le périmètre sélectionnés. Le télétravail compte comme présence/capacité, mais pas comme présence physique sur site.">ⓘ</button></span><strong id="remoteKpi">—</strong><small>jours</small></div>
+<div class="metric"><span class="metric-title">Formation <button class="info-dot" type="button" aria-label="Calcul de la formation" data-tip="Somme des journées avec le motif FO. Dans les règles RH du Cockpit, la formation est considérée comme du temps travaillé et contribue donc à la présence/capacité.">ⓘ</button></span><strong id="formationKpi">—</strong><small>jours</small></div>
+</div>
 <div class="grid2"><div class="card"><div class="section"><div><h2>Capacité disponible</h2><p>Évolution quotidienne</p></div><span class="badge" id="scope">Équipe</span></div><svg id="chart" viewBox="0 0 900 300"></svg></div><div class="card"><div class="section"><div><h2>Alertes à venir</h2><p>Seuils de Parametres_Alertes</p></div><span class="badge" id="count">0</span></div><div class="alerts" id="preview"></div></div></div>
 <div class="card"><div class="section"><div><h2>Motifs</h2><p>Répartition sur la période</p></div></div><div class="bars" id="bars"></div></div></section>
-<section class="view" id="previsionnel"><div class="card"><div class="section"><div><h2>Prévisionnel</h2><p>Vision des saisies futures et confirmées.</p></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Ressource</th><th>Motif</th><th>Statut</th><th>Commentaire</th></tr></thead><tbody id="forecastRows"></tbody></table></div></div></section>
+<section class="view" id="previsionnel">
+      <div class="card bulk-status-card">
+        <div class="section">
+          <div>
+            <h2>Régularisation des jours passés</h2>
+            <p>Convertit en masse les saisies passées encore en Prévisionnel vers Réalisé.</p>
+          </div>
+          <span class="badge" id="pastForecastCount">0 à régulariser</span>
+        </div>
+        <div class="bulk-status-actions">
+          <button class="btn secondary" id="refreshPastForecast">Recompter</button>
+          <button class="btn" id="markPastAsDone">Passer les jours passés en Réalisé</button>
+        </div>
+        <div class="import-message" id="pastForecastMessage"></div>
+      </div>
+<div class="card"><div class="section"><div><h2>Prévisionnel</h2><p>Vision des saisies futures et confirmées.</p></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Ressource</th><th>Motif</th><th>Statut</th><th>Commentaire</th></tr></thead><tbody id="forecastRows"></tbody></table></div></div></section>
 <section class="view" id="saisie">
   <div class="mass-entry-head">
     <div class="card filter-card">

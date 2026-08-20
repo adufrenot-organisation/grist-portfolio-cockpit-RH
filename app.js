@@ -51,10 +51,10 @@ async function load(){
   }
 }
 function activeTeam(){return S.team.filter(x=>x.actif!==false)}
-function render(){const opts=activeTeam().sort((a,b)=>String(a.nom).localeCompare(String(b.nom))).map(x=>`<option value="${x.id}">${esc(x.nom)}</option>`).join("");$("person").innerHTML='<option value="">Toute l’équipe</option>'+opts;chips();pilotage();renderRecent();alerts();renderForecast();renderMassFilters();renderMassMotifs();renderMotifInfo();renderMassCalendar()}
+function render(){const opts=activeTeam().sort((a,b)=>String(a.nom).localeCompare(String(b.nom))).map(x=>`<option value="${x.id}">${esc(x.nom)}</option>`).join("");$("person").innerHTML='<option value="">Toute l’équipe</option>'+opts;chips();pilotage();renderRecent();alerts();renderForecast();renderPastForecastCount();renderMassFilters();renderMassMotifs();renderMotifInfo();renderMassCalendar()}
 function chips(){$("chips").innerHTML=S.motifs.filter(x=>x.Actif!==false&&!["F","WE"].includes(x.Code)).map(x=>`<button class="chip ${S.visible.has(x.id)?"on":"off"}" data-id="${x.id}">${esc(x.Code)}</button>`).join("");$("chips").querySelectorAll("button").forEach(b=>b.onclick=()=>{const id=Number(b.dataset.id);S.visible.has(id)?S.visible.delete(id):S.visible.add(id);chips();pilotage()})}
 function selected(){const a=new Date($("from").value+"T00:00:00"),b=new Date($("to").value+"T23:59:59"),pid=Number($("person").value||0);return S.presence.filter(x=>{const d=date(x.Date);return d>=a&&d<=b&&(!pid||x.Ressource===pid)&&S.visible.has(x.Motif)})}
-function pilotage(){const rr=selected();let work=0,p=0,a=0,tl=0,fo=0;const count={};rr.forEach(r=>{const m=motif(r.Motif);if(!m)return;if(m.Compte_Capacite!==false){work++;p+=num(m.Presence_Equivalent);a+=num(m.Absence_Equivalent)}if(["TL","TE","TLE"].includes(m.Code))tl++;if(m.Code==="FO")fo++;count[m.id]=(count[m.id]||0)+1});$("presenceKpi").textContent=`${(work?p/work*100:0).toFixed(1)} %`;$("presenceSub").textContent=`${p.toFixed(1)} / ${work} jours`;$("absenceKpi").textContent=a.toFixed(1);$("remoteKpi").textContent=tl.toFixed(1);$("formationKpi").textContent=fo.toFixed(1);$("scope").textContent=$("person").value?(resource($("person").value)?.nom||"Ressource"):"Équipe";bars(count);chart(rr);S.alerts=compute();list($("preview"),S.alerts.slice(0,6));$("count").textContent=S.alerts.length}
+function pilotage(){const rr=selected();let work=0,p=0,a=0,tl=0,fo=0;const count={};rr.forEach(r=>{const m=motif(r.Motif);if(!m)return;const excluded=["WE","F"].includes(m.Code)||m.Compte_Capacite===false;if(!excluded){work++;p+=num(m.Presence_Equivalent);a+=num(m.Absence_Equivalent)}if(["TL","TE","TLE"].includes(m.Code))tl+=num(m.Presence_Equivalent,1);if(m.Code==="FO")fo+=num(m.Presence_Equivalent,1);count[m.id]=(count[m.id]||0)+1});$("presenceKpi").textContent=`${(work?p/work*100:0).toFixed(1)} %`;$("presenceSub").textContent=`${p.toFixed(1)} / ${work} jours-ressources travaillables`;$("absenceKpi").textContent=a.toFixed(1);$("remoteKpi").textContent=tl.toFixed(1);$("formationKpi").textContent=fo.toFixed(1);$("scope").textContent=$("person").value?(resource($("person").value)?.nom||"Ressource"):"Équipe";bars(count);chart(rr);S.alerts=compute();list($("preview"),S.alerts.slice(0,6));$("count").textContent=S.alerts.length}
 function bars(c){const e=Object.entries(c).sort((a,b)=>b[1]-a[1]),mx=Math.max(1,...e.map(x=>x[1]));$("bars").innerHTML=e.length?e.map(([id,v])=>{const m=motif(id);return `<div class="bar"><span>${esc(m?.Libelle||id)}</span><div class="track"><div class="fill" style="width:${v/mx*100}%;background:${esc(m?.Couleur||"#2563eb")}"></div></div><strong>${v}</strong></div>`}).join(""):'<div class="empty">Aucune donnée</div>'}
 function chart(rr){const by={};rr.forEach(r=>{const m=motif(r.Motif);if(!m||m.Compte_Capacite===false)return;const k=iso(r.Date);by[k]??={w:0,p:0};by[k].w++;by[k].p+=num(m.Presence_Equivalent)});const ds=Object.keys(by).sort(),svg=$("chart");if(!ds.length){svg.innerHTML='<text x="30" y="60" class="axis">Aucune donnée</text>';return}const vs=ds.map(k=>by[k].p/by[k].w*100),W=900,H=300,L=48,R=16,TT=18,B=40,iw=W-L-R,ih=H-TT-B,x=i=>L+(ds.length===1?iw/2:i/(ds.length-1)*iw),y=v=>TT+(100-v)/100*ih;let h="";[0,25,50,75,100].forEach(v=>h+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" class="gridline"/><text x="8" y="${y(v)+4}" class="axis">${v}%</text>`);h+=`<polyline points="${vs.map((v,i)=>`${x(i)},${y(v)}`).join(" ")}" class="line"/>`;svg.innerHTML=h}
 function severity(p,v){const o=num(p.Seuil_Orange),r=num(p.Seuil_Rouge);if(p.Sens==="MIN"){if(v<=r)return"red";if(v<=o)return"orange"}else{if(v>=r)return"red";if(v>=o)return"orange"}return null}
@@ -265,6 +265,7 @@ async function refreshCockpit(){
     // Force-refresh all views that depend on Grist data.
     pilotage();
     renderForecast();
+    renderPastForecastCount();
     renderRecent();
     renderAlerts();
     renderMassFilters();
@@ -301,6 +302,55 @@ function toggleMotifInfo(){
   btn.textContent=willShow?"ⓘ Masquer les motifs":"ⓘ Motifs disponibles";
 }
 
+function pastForecastRows(){
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  return S.presence.filter(r=>{
+    const d=date(r.Date);
+    d.setHours(0,0,0,0);
+    return d<today && r.Statut==="Prévisionnel";
+  });
+}
+
+function renderPastForecastCount(){
+  const el=$("pastForecastCount");
+  const btn=$("markPastAsDone");
+  if(!el)return;
+  const rows=pastForecastRows();
+  el.textContent=`${rows.length} à régulariser`;
+  if(btn)btn.disabled=rows.length===0;
+}
+
+async function markPastForecastAsDone(){
+  const rows=pastForecastRows();
+  if(!rows.length){
+    if($("pastForecastMessage"))$("pastForecastMessage").textContent="Aucune saisie passée en Prévisionnel.";
+    return notify("Aucune saisie à régulariser");
+  }
+
+  const ok=window.confirm(`Passer ${rows.length} saisie(s) passée(s) de Prévisionnel à Réalisé ?`);
+  if(!ok)return;
+
+  const btn=$("markPastAsDone");
+  if(btn){btn.disabled=true;btn.textContent="Mise à jour…";}
+  try{
+    const updates=rows.map(r=>({id:r.id,fields:{Statut:"Réalisé"}}));
+    await grist.getTable(T.presence).update(updates);
+
+    if($("pastForecastMessage")){
+      $("pastForecastMessage").textContent=`${updates.length} saisie(s) passée(s) ont été basculées en Réalisé.`;
+    }
+    notify(`${updates.length} saisie(s) régularisée(s)`);
+    await load();
+    renderPastForecastCount();
+  }finally{
+    if(btn){
+      btn.textContent="Passer les jours passés en Réalisé";
+      btn.disabled=pastForecastRows().length===0;
+    }
+  }
+}
+
 function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={
       pilotage:["Cockpit RH","Disponibilité, capacité et alertes prévisionnelles"],
       previsionnel:["Prévisionnel","Présences et absences futures ou confirmées"],
@@ -318,4 +368,6 @@ $("resetCsv").onclick=resetCsvImport;csvSetup();
 $("excelFile").onchange=()=>loadExcelWorkbook().catch(e=>{$("excelInfo").textContent=e.message;notify(e.message)});
 $("excelSheet").onchange=()=>{$("analyzeExcel").disabled=!$("excelSheet").value;$("excelInfo").textContent=$("excelSheet").value?`Feuille sélectionnée : ${$("excelSheet").value}`:""};
 $("analyzeExcel").onclick=()=>{try{analyzeExcelSheet()}catch(e){S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)}};
-$("resetExcel").onclick=resetExcelImport;grist.ready({requiredAccess:"full"});load().catch(e=>notify(e.message||e));
+$("resetExcel").onclick=resetExcelImport;if($("refreshPastForecast"))$("refreshPastForecast").onclick=renderPastForecastCount;
+if($("markPastAsDone"))$("markPastAsDone").onclick=()=>markPastForecastAsDone().catch(e=>notify(e.message||e));
+grist.ready({requiredAccess:"full"});load().catch(e=>notify(e.message||e));

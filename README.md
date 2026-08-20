@@ -161,3 +161,29 @@ La notion de saisie de masse reste une fonctionnalité de cet écran et non son 
 
 ## V4.8
 Correction complète de l'import CSV Excel : dates françaises/ISO et statuts/encodages Excel normalisés avant validation.
+
+
+## V4.9 — Taux de présence RH corrigé
+Calcul :
+`présence équivalente / jours-ressources travaillables × 100`
+
+- P, TL, TE, TLE, FO : présence selon `Presence_Equivalent`
+- A : absence
+- 1/2 M et 1/2 AM : 0,5 présence / 0,5 absence
+- WE et F : exclus du dénominateur
+- tout motif avec `Compte_Capacite = false` : exclu
+- libellé explicite `jours-ressources travaillables`
+
+
+## V5 — Passage en masse des jours passés en Réalisé
+Dans l'écran `Prévisionnel`, un bloc de régularisation permet :
+- de compter les lignes de `Presences` dont la date est strictement antérieure à aujourd'hui ;
+- de ne sélectionner que celles avec `Statut = Prévisionnel` ;
+- de basculer toutes ces lignes en `Réalisé` en une seule action ;
+- de demander confirmation avant écriture ;
+- de recharger le cockpit après mise à jour.
+
+Les lignes futures, les lignes `Confirmé` et les lignes déjà `Réalisé` ne sont pas modifiées.
+
+## V5.1 — Bulles explicatives des KPI
+Ajout d'une icône `ⓘ` à côté de Taux de présence, Absence, Télétravail et Formation. Les bulles expliquent la formule, les motifs pris en compte et les exclusions. Elles sont accessibles au survol et au focus clavier.
