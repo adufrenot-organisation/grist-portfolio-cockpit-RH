@@ -292,3 +292,28 @@ body.modal-open{overflow:hidden}
   .motif-visibility-card .section{display:block}
   .motif-visibility-actions{margin-top:8px}
 }
+
+/* V5.8 — rationalisation de la zone motifs */
+.motif-info-row,.motif-info-panel{display:none!important}
+.standalone-visibility-card{
+  margin:10px 0;
+  padding:14px 16px;
+}
+.standalone-visibility-card .section{margin-bottom:10px}
+.standalone-visibility-card .section h2{font-size:16px;margin:0}
+.standalone-visibility-card .section p{margin:4px 0 0;color:var(--muted);font-size:11px}
+.standalone-visibility-card .motif-visibility-picker{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.standalone-visibility-card .motif-visibility-tile{
+  min-width:86px;
+  min-height:66px;
+  padding:9px 10px 7px;
+}
+.standalone-visibility-card .motif-visibility-code{font-size:16px}
+.standalone-visibility-card .motif-visibility-label{font-size:9px}
+.standalone-visibility-card .motif-visibility-state{font-size:8px}
+.motif-card .motif-picker{margin-top:2px}
+.motif-card .mass-help{margin-top:8px}

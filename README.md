@@ -228,3 +228,10 @@ Correction fermeture modale : croix, Annuler, clic hors modale et touche Échap.
 Le contrôle de visibilité utilise désormais un second sélecteur visuel, cohérent avec le bloc `Sélectionner le motif à appliquer`.
 Chaque motif apparaît sous forme de tuile colorée avec code, libellé et état `Visible/Masqué`.
 Un motif masqué est grisé et barré.
+
+
+## V5.8 — Interface motifs rationalisée
+- Le bloc `Motif à appliquer` ne contient plus les options de masquage.
+- Le bloc `Motifs affichés dans la grille` est désormais une carte séparée.
+- La légende / aide `Motifs disponibles` redondante a été retirée de cette zone.
+- Les deux fonctions ont des rôles distincts : affecter un motif vs contrôler son affichage.

@@ -292,7 +292,6 @@ async function refreshCockpit(){
     renderAlerts();
     renderMassFilters();
     renderMassMotifs();
-    renderMotifInfo();
     renderMotifVisibility();
     renderMassCalendar();
 
@@ -496,7 +495,7 @@ function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{
     $("title").textContent=t[b.dataset.view][0];
     $("subtitle").textContent=t[b.dataset.view][1];if(b.dataset.view==="saisie")renderMassCalendar()})}
 defaults();nav();["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
-$("motifInfoToggle").onclick=toggleMotifInfo;$("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()-1,1);clearSelection()};$("nextMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()+1,1);clearSelection()};$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
+$("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()-1,1);clearSelection()};$("nextMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()+1,1);clearSelection()};$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
 $("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});
 $("resetCsv").onclick=resetCsvImport;csvSetup();
 $("excelFile").onchange=()=>loadExcelWorkbook().catch(e=>{$("excelInfo").textContent=e.message;notify(e.message)});

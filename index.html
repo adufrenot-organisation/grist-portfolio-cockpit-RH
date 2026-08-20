@@ -28,20 +28,36 @@
 <div class="card"><div class="section"><div><h2>Prévisionnel</h2><p>Vision des saisies futures et confirmées.</p></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Ressource</th><th>Motif</th><th>Statut</th><th>Commentaire</th></tr></thead><tbody id="forecastRows"></tbody></table></div></div></section>
 <section class="view" id="saisie">
   <div class="mass-entry-head">
-    <div class="card filter-card">
-      <div class="section"><div><h2>Filtrer les ressources</h2></div></div>
-      <label>Équipe<select id="massTeam"><option value="">Toutes les équipes</option></select></label>
-      <label class="check compact"><input id="massActiveOnly" type="checkbox" checked> Afficher uniquement les actifs</label>
+  <div class="card filter-card">
+    <div class="section">
+      <div>
+        <h2>Filtrer les ressources</h2>
+        <p>Affichez toute l'équipe ou limitez la grille à une équipe.</p>
+      </div>
     </div>
+    <label>Équipe
+      <select id="massTeam"><option value="">Toutes les équipes</option></select>
+    </label>
+    <label class="check compact"><input id="massActiveOnly" type="checkbox" checked> Afficher uniquement les actifs</label>
+  </div>
 
-    <div class="card motif-card">
-      <div class="section"><div><h2>Sélectionner le motif à appliquer</h2></div></div>
-      <div class="motif-picker" id="massMotifs"></div>
-      <div class="motif-visibility-card">
+  <div class="card motif-card">
+    <div class="section">
+      <div>
+        <h2>Motif à appliquer</h2>
+        <p>Sélectionnez le motif qui sera affecté aux cases cochées.</p>
+      </div>
+    </div>
+    <div class="motif-picker" id="massMotifs"></div>
+    <div class="mass-help">Sélectionnez un motif, cochez les jours concernés, puis enregistrez les modifications.</div>
+  </div>
+</div>
+
+<div class="card motif-visibility-card standalone-visibility-card">
   <div class="section">
     <div>
-      <h2>Sélectionner les motifs à masquer</h2>
-      <p>Cliquez sur un motif pour le masquer ou le réafficher dans la grille.</p>
+      <h2>Motifs affichés dans la grille</h2>
+      <p>Cliquez sur un motif pour le masquer ou le réafficher. Cela ne modifie aucune donnée.</p>
     </div>
     <div class="motif-visibility-actions">
       <button class="btn secondary compact-btn" id="showAllMotifs" type="button">Tout afficher</button>
@@ -49,19 +65,9 @@
     </div>
   </div>
   <div class="motif-visibility-picker" id="motifVisibilityList"></div>
-  <div class="motif-visibility-note">Le masquage est uniquement visuel : les données restent enregistrées dans Grist.</div>
 </div>
-<div class="motif-info-row">
-        <button class="motif-info-toggle" id="motifInfoToggle" type="button">ⓘ Motifs disponibles</button>
-      </div>
-      <div class="motif-info-panel" id="motifInfoPanel" hidden>
-        <div class="motif-info-grid" id="motifInfoGrid"></div>
-      </div>
-      <div class="mass-help">1. Sélectionnez un motif &nbsp;&nbsp; 2. Cochez les jours concernés &nbsp;&nbsp; 3. Enregistrez la sélection</div>
-    </div>
-  </div>
 
-  <div class="card action-card">
+<div class="card action-card">
     <div class="section"><div><h2>Actions</h2></div></div>
     <button class="btn secondary wide-btn" id="selectAllVisible">Tout sélectionner</button>
     <button class="btn secondary wide-btn" id="clearSelection">Tout désélectionner</button>
