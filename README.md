@@ -52,3 +52,38 @@ Ordre de traitement : équipes -> ressources -> présences.
 - comparaison des en-têtes insensible à la casse, accents, espaces, `_` et `-` ;
 - `Commentaire`, ` commentaire ` ou variantes équivalentes sont normalisés ;
 - en cas d'erreur, le diagnostic affiche les colonnes réellement détectées.
+
+
+## V3.7 — Réinitialisation des imports
+Deux boutons `Réinitialiser` ont été ajoutés :
+
+### Import CSV
+Le bouton remet à zéro :
+- le fichier CSV sélectionné ;
+- l'analyse ;
+- la prévisualisation ;
+- les compteurs ;
+- le bouton Importer.
+
+### Import Excel
+Le bouton remet à zéro :
+- le fichier Excel sélectionné ;
+- le classeur chargé en mémoire ;
+- la feuille choisie ;
+- l'analyse ;
+- la prévisualisation ;
+- les compteurs ;
+- l'équipe par défaut (`EQUIPE_EXCEL`) ;
+- l'option `cellule vide en jour ouvré = P`.
+
+Aucune donnée déjà enregistrée dans Grist n'est supprimée.
+
+
+## V3.8 — Correctif du bouton Actualiser
+Le bouton `Actualiser` :
+- recharge `Team`, `Team_ref`, `Motifs_RH`, `Presences` et `Parametres_Alertes` depuis Grist ;
+- vide les modifications locales non enregistrées de la grille de saisie en masse ;
+- rafraîchit explicitement le calendrier, les filtres, les motifs, les prévisions, les rapports et les alertes ;
+- affiche un état `Actualisation…` pendant le rechargement.
+
+Les données déjà enregistrées dans Grist ne sont évidemment pas supprimées.

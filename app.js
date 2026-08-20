@@ -207,9 +207,80 @@ function analyzeExcelSheet(){
   document.querySelector(".import-card:not(.excel-import-card)")?.scrollIntoView({behavior:"smooth",block:"start"});
 }
 
+function resetCsvImport(){
+  S.csvAnalysis=null;
+  if($("csvFile")) $("csvFile").value="";
+  if($("csvMessage")) $("csvMessage").textContent="";
+  if($("csvPreview")) $("csvPreview").innerHTML="";
+  ["csvValid","csvNewResources","csvCreates","csvUpdates","csvErrors"].forEach(id=>{
+    if($(id)) $(id).textContent="0";
+  });
+  if($("importCsv")) $("importCsv").disabled=true;
+  notify("Import CSV réinitialisé");
+}
+
+function resetExcelImport(){
+  S.excelWorkbook=null;
+  S.csvAnalysis=null;
+
+  if($("excelFile")) $("excelFile").value="";
+  if($("excelSheet")){
+    $("excelSheet").innerHTML='<option value="">Sélectionnez d\'abord un fichier</option>';
+    $("excelSheet").disabled=true;
+  }
+  if($("analyzeExcel")) $("analyzeExcel").disabled=true;
+  if($("excelInfo")) $("excelInfo").textContent="";
+  if($("excelDefaultTeam")) $("excelDefaultTeam").value="EQUIPE_EXCEL";
+  if($("excelBlankAsP")) $("excelBlankAsP").checked=true;
+
+  if($("csvMessage")) $("csvMessage").textContent="";
+  if($("csvPreview")) $("csvPreview").innerHTML="";
+  ["csvValid","csvNewResources","csvCreates","csvUpdates","csvErrors"].forEach(id=>{
+    if($(id)) $(id).textContent="0";
+  });
+  if($("importCsv")) $("importCsv").disabled=true;
+
+  notify("Import Excel réinitialisé");
+}
+
+async function refreshCockpit(){
+  const btn=$("refresh");
+  if(btn){
+    btn.disabled=true;
+    btn.dataset.originalText=btn.textContent;
+    btn.textContent="Actualisation…";
+  }
+  try{
+    // Drop local transient states that may mask fresh Grist data.
+    S.changes.clear();
+    S.selectedCells.clear();
+    S.csvAnalysis=null;
+
+    await load();
+
+    // Force-refresh all views that depend on Grist data.
+    pilotage();
+    renderForecast();
+    renderRecent();
+    renderAlerts();
+    renderMassFilters();
+    renderMassMotifs();
+    renderMassCalendar();
+
+    notify("Données actualisées");
+  }finally{
+    if(btn){
+      btn.disabled=false;
+      btn.textContent=btn.dataset.originalText||"Actualiser";
+    }
+  }
+}
+
 function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={pilotage:["Cockpit","Disponibilité et prévisionnel"],previsionnel:["Prévisionnel","Saisies futures et confirmées"],saisie:["Saisie des temps — Saisie de masse","Remplissez rapidement les présences / absences pour plusieurs ressources"],alertes:["Alertes","Risques prévisionnels"],rapports:["Rapports","Dernières saisies"]};$("title").textContent=t[b.dataset.view][0];$("subtitle").textContent=t[b.dataset.view][1];if(b.dataset.view==="saisie")renderMassCalendar()})}
-defaults();nav();["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=load;$("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()-1,1);clearSelection()};$("nextMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()+1,1);clearSelection()};$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
-$("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});csvSetup();
+defaults();nav();["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});$("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()-1,1);clearSelection()};$("nextMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()+1,1);clearSelection()};$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
+$("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});
+$("resetCsv").onclick=resetCsvImport;csvSetup();
 $("excelFile").onchange=()=>loadExcelWorkbook().catch(e=>{$("excelInfo").textContent=e.message;notify(e.message)});
 $("excelSheet").onchange=()=>{$("analyzeExcel").disabled=!$("excelSheet").value;$("excelInfo").textContent=$("excelSheet").value?`Feuille sélectionnée : ${$("excelSheet").value}`:""};
-$("analyzeExcel").onclick=()=>{try{analyzeExcelSheet()}catch(e){S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)}};grist.ready({requiredAccess:"full"});load().catch(e=>notify(e.message||e));
+$("analyzeExcel").onclick=()=>{try{analyzeExcelSheet()}catch(e){S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)}};
+$("resetExcel").onclick=resetExcelImport;grist.ready({requiredAccess:"full"});load().catch(e=>notify(e.message||e));
