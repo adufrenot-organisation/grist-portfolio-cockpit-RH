@@ -300,7 +300,7 @@ function toggleMotifInfo(){
 function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={
       pilotage:["Cockpit RH","Disponibilité, capacité et alertes prévisionnelles"],
       previsionnel:["Prévisionnel","Présences et absences futures ou confirmées"],
-      saisie:["Saisie de masse","Renseignez rapidement les présences et absences de plusieurs ressources"],
+      saisie:["Saisie des temps","Saisie rapide des présences et absences pour plusieurs ressources"],
       imports:["Imports","Importez des calendriers Excel ou CSV dans Grist"],
       alertes:["Alertes","Alertes prévisionnelles selon les seuils configurés"],
       rapports:["Rapports","Synthèse des dernières saisies enregistrées"]

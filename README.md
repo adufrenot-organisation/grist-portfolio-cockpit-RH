@@ -152,3 +152,8 @@ Les titres ont été harmonisés et rendus distincts :
 
 L'ancien intitulé redondant `Saisie des temps — Saisie de masse` a été supprimé.
 Le menu `Imports` possède désormais également son propre titre et sous-titre.
+
+
+## V4.7 — Intitulé Saisie des temps
+Le menu et le titre de la vue `saisie` utilisent désormais `Saisie des temps`.
+La notion de saisie de masse reste une fonctionnalité de cet écran et non son intitulé.
