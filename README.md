@@ -120,3 +120,11 @@ Correction de la structure HTML du bloc Actions qui avait été cassée lors de 
 ## V4.3 — Correction Actualiser / erreur `innerHTML of null`
 La cause était un ancien rendu `renderLegend()` toujours appelé alors que la légende permanente avait été supprimée de la page.
 Le rendu global a été corrigé et les fonctions de rendu de la saisie en masse ont été sécurisées lorsqu'un élément DOM est absent.
+
+
+## V4.4 — Correction `renderRecent is not defined`
+Le code utilisait deux noms différents pour la même fonction de rendu des rapports :
+- `recent()`
+- `renderRecent()`
+
+La V4.4 utilise désormais uniquement `renderRecent()` et la fonction est sécurisée si le tableau `recent` n'est pas présent dans la vue.
