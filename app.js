@@ -18,7 +18,7 @@ function gristRows(data, tableName="") {
   }
   return rows;
 }
-const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null};
+const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set()};
 const $=id=>document.getElementById(id),num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d,esc=(s="")=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const date=v=>typeof v==="number"?new Date(v*1000):Array.isArray(v)&&v[0]==="D"?new Date(v[1]*1000):new Date(v);
 const iso=v=>{const d=date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
@@ -79,7 +79,10 @@ function presenceFor(resourceId,dateStr){return S.presence.find(r=>r.Ressource==
 function cellKey(resourceId,dateStr){return `${resourceId}|${dateStr}`}
 function displayMotifForCell(resourceId,dateStr){const key=cellKey(resourceId,dateStr);if(S.changes.has(key))return S.changes.get(key);const old=presenceFor(resourceId,dateStr);return old?old.Motif:null}
 function initials(name=""){return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase()}
-function renderMassCalendar(){const res=massResources(),days=daysInMonth(S.month),today=iso(new Date());$("resourceCount").textContent=`${res.length} ressource${res.length>1?"s":""} affichée${res.length>1?"s":""}`;$("monthLabel").textContent=S.month.toLocaleDateString("fr-FR",{month:"long",year:"numeric"}).replace(/^./,c=>c.toUpperCase());$("massHead").innerHTML=`<tr><th class="sticky-name">Ressource</th><th class="sticky-team">Équipe</th>${days.map(d=>{const w=[0,6].includes(d.getDay()),ds=iso(d);return `<th class="day-head ${w?"weekend":""}">${d.toLocaleDateString("fr-FR",{weekday:"short"}).replace(".","")}<strong>${String(d.getDate()).padStart(2,"0")}</strong></th>`}).join("")}</tr>`;$("massBody").innerHTML=res.map(r=>`<tr><td class="sticky-name"><div class="resource-name"><span class="avatar">${initials(r.nom)}</span><span>${esc(r.nom)}</span></div></td><td class="sticky-team">${esc(teamRef(r.equipe)?.Libelle||teamRef(r.equipe)?.Code||"—")}</td>${days.map(d=>{const ds=iso(d),key=cellKey(r.id,ds),mid=displayMotifForCell(r.id,ds),m=motif(mid),weekend=[0,6].includes(d.getDay()),selected=S.selectedCells.has(key),changed=S.changes.has(key),colors=m?motifSoftColor(m.Code):["#fff","#fff"];return `<td class="resource-cell ${weekend?"weekend":""} ${selected?"selected":""} ${m?"has-value":""}"><button class="cell-toggle" data-r="${r.id}" data-d="${ds}"><span class="cell-box" style="${m?`background:${colors[0]};color:${colors[1]};border:1px solid ${colors[1]}44`:""}">${m?esc(m.Code):""}</span>${changed?'<span class="modified-dot"></span>':""}</button></td>`}).join("")}</tr>`).join("");$("massBody").querySelectorAll(".cell-toggle").forEach(b=>b.onclick=()=>toggleCell(Number(b.dataset.r),b.dataset.d));$("saveSummary").textContent=S.changes.size?`${S.changes.size} modification${S.changes.size>1?"s":""} en attente`:""}
+function renderMotifVisibility(){const el=$("motifVisibilityList");if(!el)return;const items=S.motifs.filter(m=>m.Actif!==false);el.innerHTML=items.map(m=>{const hidden=S.hiddenGridMotifs.has(m.id),c=motifSoftColor(m.Code);return `<button type="button" class="motif-vis-chip ${hidden?"is-hidden":"is-visible"}" data-id="${m.id}"><span class="motif-vis-code" style="background:${c[0]};color:${c[1]}">${esc(m.Code)}</span><span>${hidden?"Masqué":"Visible"}</span></button>`}).join("");el.querySelectorAll(".motif-vis-chip").forEach(b=>b.onclick=()=>{const id=Number(b.dataset.id);S.hiddenGridMotifs.has(id)?S.hiddenGridMotifs.delete(id):S.hiddenGridMotifs.add(id);renderMotifVisibility();renderMassCalendar()})}
+function showAllGridMotifs(){S.hiddenGridMotifs.clear();renderMotifVisibility();renderMassCalendar()}
+function hideAllGridMotifs(){S.motifs.filter(m=>m.Actif!==false).forEach(m=>S.hiddenGridMotifs.add(m.id));renderMotifVisibility();renderMassCalendar()}
+function renderMassCalendar(){const res=massResources(),days=daysInMonth(S.month),today=iso(new Date());$("resourceCount").textContent=`${res.length} ressource${res.length>1?"s":""} affichée${res.length>1?"s":""}`;$("monthLabel").textContent=S.month.toLocaleDateString("fr-FR",{month:"long",year:"numeric"}).replace(/^./,c=>c.toUpperCase());$("massHead").innerHTML=`<tr><th class="sticky-name">Ressource</th><th class="sticky-team">Équipe</th>${days.map(d=>{const w=[0,6].includes(d.getDay()),ds=iso(d);return `<th class="day-head ${w?"weekend":""}">${d.toLocaleDateString("fr-FR",{weekday:"short"}).replace(".","")}<strong>${String(d.getDate()).padStart(2,"0")}</strong></th>`}).join("")}</tr>`;$("massBody").innerHTML=res.map(r=>`<tr><td class="sticky-name"><div class="resource-name"><span class="avatar">${initials(r.nom)}</span><span>${esc(r.nom)}</span></div></td><td class="sticky-team">${esc(teamRef(r.equipe)?.Libelle||teamRef(r.equipe)?.Code||"—")}</td>${days.map(d=>{const ds=iso(d),key=cellKey(r.id,ds),mid=displayMotifForCell(r.id,ds),m=motif(mid),weekend=[0,6].includes(d.getDay()),selected=S.selectedCells.has(key),changed=S.changes.has(key),hidden=!!(m&&S.hiddenGridMotifs.has(m.id)),shown=m&&!hidden,colors=shown?motifSoftColor(m.Code):["#fff","#fff"];return `<td class="resource-cell ${weekend?"weekend":""} ${selected?"selected":""} ${shown?"has-value":""} ${hidden?"motif-hidden":""}" title="${hidden?esc((m.Libelle||m.Code)+" — masqué"):""}"><button class="cell-toggle" data-r="${r.id}" data-d="${ds}"><span class="cell-box" style="${shown?`background:${colors[0]};color:${colors[1]};border:1px solid ${colors[1]}44`:""}">${shown?esc(m.Code):""}</span>${hidden?'<span class="hidden-motif-dot"></span>':""}${changed?'<span class="modified-dot"></span>':""}</button></td>`}).join("")}</tr>`).join("");$("massBody").querySelectorAll(".cell-toggle").forEach(b=>b.onclick=()=>toggleCell(Number(b.dataset.r),b.dataset.d));$("saveSummary").textContent=S.changes.size?`${S.changes.size} modification${S.changes.size>1?"s":""} en attente`:""}
 function toggleCell(resourceId,dateStr){const key=cellKey(resourceId,dateStr),old=presenceFor(resourceId,dateStr);if(!S.selectedMotif)return notify("Sélectionnez d'abord un motif.");S.selectedCells.add(key);S.changes.set(key,S.selectedMotif);renderMassCalendar()}
 function selectAllVisible(){if(!S.selectedMotif)return notify("Sélectionnez un motif.");const res=massResources(),days=daysInMonth(S.month).filter(d=>![0,6].includes(d.getDay()));res.forEach(r=>days.forEach(d=>{const ds=iso(d),key=cellKey(r.id,ds);S.selectedCells.add(key);S.changes.set(key,S.selectedMotif)}));renderMassCalendar()}
 function clearSelection(){S.selectedCells.clear();S.changes.clear();renderMassCalendar()}
@@ -271,6 +274,7 @@ async function refreshCockpit(){
     renderMassFilters();
     renderMassMotifs();
     renderMotifInfo();
+    renderMotifVisibility();
     renderMassCalendar();
 
     renderResetTimesheet();
@@ -361,8 +365,8 @@ function renderResetTimesheet(){
   if([...sel.options].some(o=>o.value===current))sel.value=current;
   updateResetModeUi();updateResetTimesheetCount();
 }
-function openResetTimesheetModal(){renderResetTimesheet();const m=$("resetTimesheetModal");if(m)m.hidden=false}
-function closeResetTimesheetModal(){const m=$("resetTimesheetModal");if(m)m.hidden=true}
+function openResetTimesheetModal(){renderResetTimesheet();const m=$("resetTimesheetModal");if(m){m.hidden=false;m.style.display="flex";document.body.classList.add("modal-open")}}
+function closeResetTimesheetModal(){const m=$("resetTimesheetModal");if(m){m.hidden=true;m.style.display="none";document.body.classList.remove("modal-open")}}
 
 
 function updateResetModeUi(){const show=($("resetTimesheetMode")?.value||"all")==="period";if($("resetPeriodFields"))$("resetPeriodFields").hidden=!show}
@@ -481,10 +485,13 @@ $("excelSheet").onchange=()=>{$("analyzeExcel").disabled=!$("excelSheet").value;
 $("analyzeExcel").onclick=()=>{try{analyzeExcelSheet()}catch(e){S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)}};
 $("resetExcel").onclick=resetExcelImport;if($("refreshPastForecast"))$("refreshPastForecast").onclick=renderPastForecastCount;
 if($("markPastAsDone"))$("markPastAsDone").onclick=()=>markPastForecastAsDone().catch(e=>notify(e.message||e));
+if($("showAllMotifs"))$("showAllMotifs").onclick=showAllGridMotifs;
+if($("hideAllMotifs"))$("hideAllMotifs").onclick=hideAllGridMotifs;
 if($("openResetTimesheet"))$("openResetTimesheet").onclick=openResetTimesheetModal;
 if($("closeResetTimesheet"))$("closeResetTimesheet").onclick=closeResetTimesheetModal;
 if($("cancelResetTimesheet"))$("cancelResetTimesheet").onclick=closeResetTimesheetModal;
 if($("resetTimesheetModal"))$("resetTimesheetModal").onclick=e=>{if(e.target===$("resetTimesheetModal"))closeResetTimesheetModal()};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("resetTimesheetModal")?.hidden)closeResetTimesheetModal()});
 if($("resetTimesheetPerson"))$("resetTimesheetPerson").onchange=updateResetTimesheetCount;
 if($("resetTimesheetMode"))$("resetTimesheetMode").onchange=()=>{updateResetModeUi();updateResetTimesheetCount();};
 if($("resetPeriodFrom"))$("resetPeriodFrom").onchange=updateResetTimesheetCount;

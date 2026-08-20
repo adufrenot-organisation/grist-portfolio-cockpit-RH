@@ -37,7 +37,12 @@
     <div class="card motif-card">
       <div class="section"><div><h2>Sélectionner le motif à appliquer</h2></div></div>
       <div class="motif-picker" id="massMotifs"></div>
-      <div class="motif-info-row">
+      <div class="motif-visibility-block">
+<div class="motif-visibility-head"><strong>Affichage des motifs dans la grille</strong><div><button class="link-btn" id="showAllMotifs" type="button">Tout afficher</button><button class="link-btn" id="hideAllMotifs" type="button">Tout masquer</button></div></div>
+<div class="motif-visibility-list" id="motifVisibilityList"></div>
+<div class="motif-visibility-note">Le masquage est uniquement visuel : aucune donnée Grist n'est modifiée.</div>
+</div>
+<div class="motif-info-row">
         <button class="motif-info-toggle" id="motifInfoToggle" type="button">ⓘ Motifs disponibles</button>
       </div>
       <div class="motif-info-panel" id="motifInfoPanel" hidden>

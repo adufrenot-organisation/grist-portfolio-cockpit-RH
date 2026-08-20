@@ -214,3 +214,11 @@ La suppression reste limitée à `Presences` : la ressource `Team` et son équip
 
 ## V5.4
 Réinitialisation déplacée dans une modale ouverte depuis Actions. Liste des ressources alimentée directement depuis Team, sans filtre équipe/actif.
+
+
+## V5.5
+Contrôle d'affichage des motifs dans la grille : visible/masqué par motif, Tout afficher, Tout masquer. Le masquage est seulement visuel et ne modifie pas Presences.
+
+
+## V5.6
+Correction fermeture modale : croix, Annuler, clic hors modale et touche Échap. Forçage display:none à la fermeture.
