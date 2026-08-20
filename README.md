@@ -115,3 +115,8 @@ Correction de la structure HTML du bloc Actions qui avait été cassée lors de 
 - les trois boutons sont disposés horizontalement ;
 - le calendrier n'est plus imbriqué dans le bloc Actions ;
 - le panneau Motifs reste dans le bloc de sélection des motifs.
+
+
+## V4.3 — Correction Actualiser / erreur `innerHTML of null`
+La cause était un ancien rendu `renderLegend()` toujours appelé alors que la légende permanente avait été supprimée de la page.
+Le rendu global a été corrigé et les fonctions de rendu de la saisie en masse ont été sécurisées lorsqu'un élément DOM est absent.
