@@ -193,3 +193,102 @@ svg{width:100%;height:300px;display:block}.gridline{stroke:#e5ebf0}.axis{fill:#7
 
 body.modal-open{overflow:hidden}
 #resetTimesheetModal[hidden]{display:none!important}
+
+/* V5.7 — bloc visuel pour sélectionner les motifs à masquer */
+.motif-visibility-block{display:none!important}
+.motif-visibility-card{
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid #e5ebef;
+}
+.motif-visibility-card .section{
+  margin-bottom:10px;
+}
+.motif-visibility-card .section h2{
+  font-size:16px;
+  margin:0;
+}
+.motif-visibility-card .section p{
+  margin:4px 0 0;
+  color:var(--muted);
+  font-size:11px;
+}
+.motif-visibility-actions{
+  display:flex;
+  gap:7px;
+  align-items:center;
+}
+.compact-btn{
+  padding:6px 9px;
+  font-size:10px;
+}
+.motif-visibility-picker{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.motif-visibility-tile{
+  position:relative;
+  min-width:105px;
+  min-height:82px;
+  padding:11px 12px 9px;
+  border:1px solid transparent;
+  border-radius:12px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  cursor:pointer;
+  transition:transform .12s ease,box-shadow .12s ease,opacity .12s ease;
+}
+.motif-visibility-tile:hover{
+  transform:translateY(-1px);
+  box-shadow:0 5px 14px rgba(31,55,72,.08);
+}
+.motif-visibility-code{
+  font-size:18px;
+  font-weight:900;
+}
+.motif-visibility-label{
+  font-size:10px;
+  font-weight:600;
+  text-align:center;
+  opacity:.82;
+}
+.motif-visibility-state{
+  margin-top:2px;
+  font-size:9px;
+  font-weight:900;
+  text-transform:uppercase;
+}
+.motif-visibility-tile.visible{
+  box-shadow:inset 0 0 0 2px rgba(20,166,160,.18);
+}
+.motif-visibility-tile.visible .motif-visibility-state{
+  color:#0f807b;
+}
+.motif-visibility-tile.hidden{
+  opacity:.42;
+  filter:grayscale(.5);
+  box-shadow:inset 0 0 0 2px rgba(82,98,115,.16);
+}
+.motif-visibility-tile.hidden::after{
+  content:"";
+  position:absolute;
+  left:12px;
+  right:12px;
+  top:50%;
+  height:2px;
+  background:rgba(67,84,99,.58);
+  transform:rotate(-12deg);
+}
+.motif-visibility-note{
+  margin-top:8px;
+  font-size:10px;
+  color:var(--muted);
+}
+@media(max-width:700px){
+  .motif-visibility-card .section{display:block}
+  .motif-visibility-actions{margin-top:8px}
+}

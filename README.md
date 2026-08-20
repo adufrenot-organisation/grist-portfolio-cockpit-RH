@@ -222,3 +222,9 @@ Contrôle d'affichage des motifs dans la grille : visible/masqué par motif, Tou
 
 ## V5.6
 Correction fermeture modale : croix, Annuler, clic hors modale et touche Échap. Forçage display:none à la fermeture.
+
+
+## V5.7 — Sélectionner les motifs à masquer
+Le contrôle de visibilité utilise désormais un second sélecteur visuel, cohérent avec le bloc `Sélectionner le motif à appliquer`.
+Chaque motif apparaît sous forme de tuile colorée avec code, libellé et état `Visible/Masqué`.
+Un motif masqué est grisé et barré.

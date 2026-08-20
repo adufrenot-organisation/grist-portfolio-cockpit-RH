@@ -79,7 +79,26 @@ function presenceFor(resourceId,dateStr){return S.presence.find(r=>r.Ressource==
 function cellKey(resourceId,dateStr){return `${resourceId}|${dateStr}`}
 function displayMotifForCell(resourceId,dateStr){const key=cellKey(resourceId,dateStr);if(S.changes.has(key))return S.changes.get(key);const old=presenceFor(resourceId,dateStr);return old?old.Motif:null}
 function initials(name=""){return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase()}
-function renderMotifVisibility(){const el=$("motifVisibilityList");if(!el)return;const items=S.motifs.filter(m=>m.Actif!==false);el.innerHTML=items.map(m=>{const hidden=S.hiddenGridMotifs.has(m.id),c=motifSoftColor(m.Code);return `<button type="button" class="motif-vis-chip ${hidden?"is-hidden":"is-visible"}" data-id="${m.id}"><span class="motif-vis-code" style="background:${c[0]};color:${c[1]}">${esc(m.Code)}</span><span>${hidden?"Masqué":"Visible"}</span></button>`}).join("");el.querySelectorAll(".motif-vis-chip").forEach(b=>b.onclick=()=>{const id=Number(b.dataset.id);S.hiddenGridMotifs.has(id)?S.hiddenGridMotifs.delete(id):S.hiddenGridMotifs.add(id);renderMotifVisibility();renderMassCalendar()})}
+function renderMotifVisibility(){
+  const el=$("motifVisibilityList");
+  if(!el)return;
+  const items=S.motifs.filter(m=>m.Actif!==false);
+  el.innerHTML=items.map(m=>{
+    const hidden=S.hiddenGridMotifs.has(m.id);
+    const c=motifSoftColor(m.Code);
+    return `<button type="button" class="motif-visibility-tile ${hidden?"hidden":"visible"}" data-id="${m.id}" style="background:${c[0]};color:${c[1]}">
+      <span class="motif-visibility-code">${esc(m.Code)}</span>
+      <span class="motif-visibility-label">${esc(m.Libelle||"")}</span>
+      <span class="motif-visibility-state">${hidden?"Masqué":"Visible"}</span>
+    </button>`;
+  }).join("");
+  el.querySelectorAll(".motif-visibility-tile").forEach(b=>b.onclick=()=>{
+    const id=Number(b.dataset.id);
+    S.hiddenGridMotifs.has(id)?S.hiddenGridMotifs.delete(id):S.hiddenGridMotifs.add(id);
+    renderMotifVisibility();
+    renderMassCalendar();
+  });
+}
 function showAllGridMotifs(){S.hiddenGridMotifs.clear();renderMotifVisibility();renderMassCalendar()}
 function hideAllGridMotifs(){S.motifs.filter(m=>m.Actif!==false).forEach(m=>S.hiddenGridMotifs.add(m.id));renderMotifVisibility();renderMassCalendar()}
 function renderMassCalendar(){const res=massResources(),days=daysInMonth(S.month),today=iso(new Date());$("resourceCount").textContent=`${res.length} ressource${res.length>1?"s":""} affichée${res.length>1?"s":""}`;$("monthLabel").textContent=S.month.toLocaleDateString("fr-FR",{month:"long",year:"numeric"}).replace(/^./,c=>c.toUpperCase());$("massHead").innerHTML=`<tr><th class="sticky-name">Ressource</th><th class="sticky-team">Équipe</th>${days.map(d=>{const w=[0,6].includes(d.getDay()),ds=iso(d);return `<th class="day-head ${w?"weekend":""}">${d.toLocaleDateString("fr-FR",{weekday:"short"}).replace(".","")}<strong>${String(d.getDate()).padStart(2,"0")}</strong></th>`}).join("")}</tr>`;$("massBody").innerHTML=res.map(r=>`<tr><td class="sticky-name"><div class="resource-name"><span class="avatar">${initials(r.nom)}</span><span>${esc(r.nom)}</span></div></td><td class="sticky-team">${esc(teamRef(r.equipe)?.Libelle||teamRef(r.equipe)?.Code||"—")}</td>${days.map(d=>{const ds=iso(d),key=cellKey(r.id,ds),mid=displayMotifForCell(r.id,ds),m=motif(mid),weekend=[0,6].includes(d.getDay()),selected=S.selectedCells.has(key),changed=S.changes.has(key),hidden=!!(m&&S.hiddenGridMotifs.has(m.id)),shown=m&&!hidden,colors=shown?motifSoftColor(m.Code):["#fff","#fff"];return `<td class="resource-cell ${weekend?"weekend":""} ${selected?"selected":""} ${shown?"has-value":""} ${hidden?"motif-hidden":""}" title="${hidden?esc((m.Libelle||m.Code)+" — masqué"):""}"><button class="cell-toggle" data-r="${r.id}" data-d="${ds}"><span class="cell-box" style="${shown?`background:${colors[0]};color:${colors[1]};border:1px solid ${colors[1]}44`:""}">${shown?esc(m.Code):""}</span>${hidden?'<span class="hidden-motif-dot"></span>':""}${changed?'<span class="modified-dot"></span>':""}</button></td>`}).join("")}</tr>`).join("");$("massBody").querySelectorAll(".cell-toggle").forEach(b=>b.onclick=()=>toggleCell(Number(b.dataset.r),b.dataset.d));$("saveSummary").textContent=S.changes.size?`${S.changes.size} modification${S.changes.size>1?"s":""} en attente`:""}
