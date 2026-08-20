@@ -18,7 +18,7 @@ function gristRows(data, tableName="") {
   }
   return rows;
 }
-const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null};
+const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null};
 const $=id=>document.getElementById(id),num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d,esc=(s="")=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const date=v=>typeof v==="number"?new Date(v*1000):Array.isArray(v)&&v[0]==="D"?new Date(v[1]*1000):new Date(v);
 const iso=v=>{const d=date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
@@ -99,6 +99,92 @@ function csvRender(){let a=S.csvAnalysis;if(!a){$("csvPreview").innerHTML="";$("
 async function csvAnalyzeFile(){let f=$("csvFile").files?.[0];if(!f)throw Error("Sélectionnez un CSV");let p=csvParse(await f.text());S.csvAnalysis={...p,...csvAnalyze(p)};csvRender()}
 async function csvImport(){let a=S.csvAnalysis;if(!a||a.rows.some(x=>x.bad))throw Error("Analyse invalide");let teamRefTable=grist.getTable(T.teams),tt=grist.getTable(T.team),pt=grist.getTable(T.presence),createdTeams=new Map(),createdResources=new Map();for(let t of (a.newTeams?.values()||[])){let z=await teamRefTable.create({fields:{Code:t.Code,Libelle:t.Libelle,Description:t.Description||""}});if(typeof z==="number")createdTeams.set(t.key,z);else if(z?.id)createdTeams.set(t.key,z.id)}if(a.newTeams?.size){S.teams=gristRows(await grist.docApi.fetchTable(T.teams),"Team_ref");for(let t of a.newTeams.values())if(!createdTeams.has(t.key)){let found=csvTeam(t.Code);if(found)createdTeams.set(t.key,found.id)}}for(let r of a.newResources.values()){let teamId=Number(r.teamId||0);if(!teamId&&r.teamKey)teamId=Number(createdTeams.get(r.teamKey)||0);let z=await tt.create({fields:{nom:r.Nom_Ressource||r.Email,email:r.Email||"",role:r.Role||"",capacite_ETP:num(r.Capacite_ETP,1),actif:true,equipe:teamId}});if(typeof z==="number")createdResources.set(r.key,z);else if(z?.id)createdResources.set(r.key,z.id)}if(a.newResources.size){S.team=gristRows(await grist.docApi.fetchTable(T.team),"Team");for(let r of a.newResources.values())if(!createdResources.has(r.key)){let m=csvResource(r);if(m)createdResources.set(r.key,m.id)}}S.presence=gristRows(await grist.docApi.fetchTable(T.presence),"Presences");let cr=[],up=[];for(let r of a.rows){let rid=r.res?.id||createdResources.get(r.key);if(!rid)throw Error("Ressource introuvable ligne "+r._line);let old=S.presence.find(x=>x.Ressource===rid&&iso(x.Date)===r.Date),fields={Ressource:rid,Date:epoch(r.Date),Motif:r.mo.id,Statut:r.status,Commentaire:r.Commentaire||"",Source:"Import"};old?up.push({id:old.id,fields}):cr.push({fields})}if(up.length)await pt.update(up);if(cr.length)await pt.create(cr);$("csvMessage").textContent=`Import terminé : ${a.newTeams?.size||0} équipe(s), ${a.newResources.size} ressource(s), ${cr.length} création(s), ${up.length} mise(s) à jour.`;S.csvAnalysis=null;$("csvFile").value="";csvRender();await load();notify("Import CSV terminé")}
 
+/* EXCEL IMPORT --------------------------------------------------------- */
+function excelDateToIso(v){
+  if(v instanceof Date&&!Number.isNaN(v.getTime()))return iso(v);
+  if(typeof v==="number"){
+    const p=XLSX.SSF.parse_date_code(v);
+    if(p)return `${p.y}-${String(p.m).padStart(2,"0")}-${String(p.d).padStart(2,"0")}`;
+  }
+  const s=String(v??"").trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+  return "";
+}
+async function loadExcelWorkbook(){
+  const file=$("excelFile").files?.[0];
+  if(!file)return;
+  if(typeof XLSX==="undefined")throw Error("La librairie de lecture Excel n'est pas disponible.");
+  const data=await file.arrayBuffer();
+  S.excelWorkbook=XLSX.read(data,{type:"array",cellDates:true});
+  $("excelSheet").innerHTML='<option value="">Choisir une feuille…</option>'+S.excelWorkbook.SheetNames.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join("");
+  $("excelSheet").disabled=false;$("analyzeExcel").disabled=true;
+  $("excelInfo").textContent=`${S.excelWorkbook.SheetNames.length} feuille(s) détectée(s). Sélectionnez celle à importer.`;
+}
+function excelSheetToCsvRows(){
+  const sheetName=$("excelSheet").value;
+  if(!S.excelWorkbook||!sheetName)throw Error("Sélectionnez la feuille à importer.");
+  const ws=S.excelWorkbook.Sheets[sheetName];
+  const matrix=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+  if(!matrix.length)throw Error("La feuille sélectionnée est vide.");
+
+  // Détection de la ligne contenant le plus de dates : calendrier horizontal.
+  let dateRow=-1,dateCols=[];
+  matrix.forEach((row,ri)=>{
+    const found=[];
+    row.forEach((v,ci)=>{const ds=excelDateToIso(v);if(ds)found.push({ci,ds})});
+    if(found.length>dateCols.length){dateRow=ri;dateCols=found}
+  });
+  if(dateRow<0||dateCols.length<2)throw Error("Impossible de détecter un calendrier horizontal : aucune ligne de dates exploitable.");
+
+  const firstDateCol=Math.min(...dateCols.map(x=>x.ci));
+  // Détection des ressources sous la ligne des dates : première colonne texte non vide avant les dates.
+  let nameCol=-1;
+  for(let c=0;c<firstDateCol;c++){
+    let score=0;
+    for(let r=dateRow+1;r<matrix.length;r++)if(typeof matrix[r]?.[c]==="string"&&matrix[r][c].trim())score++;
+    if(score>0){nameCol=c;break}
+  }
+  if(nameCol<0)throw Error("Impossible de détecter la colonne des ressources.");
+
+  const defaultTeam=($("excelDefaultTeam").value||sheetName||"EQUIPE_EXCEL").trim();
+  const blankAsP=$("excelBlankAsP").checked;
+  const known=new Set(S.motifs.map(m=>String(m.Code||"").trim().toUpperCase()));
+  const rows=[];let resources=0,unknown=new Set();
+
+  for(let r=dateRow+1;r<matrix.length;r++){
+    const name=String(matrix[r]?.[nameCol]??"").trim();
+    if(!name)continue;
+    // Ignore obvious legend/header rows by requiring at least one calendar cell or a normal-looking name.
+    let produced=0;
+    for(const dc of dateCols){
+      let code=String(matrix[r]?.[dc.ci]??"").trim();
+      const dow=new Date(dc.ds+"T12:00:00").getDay();
+      if(!code&&blankAsP&&dow!==0&&dow!==6)code="P";
+      if(!code)continue;
+      if(!known.has(code.toUpperCase())){unknown.add(code);continue}
+      rows.push({
+        _line:r+1,Nom_Ressource:name,Email:"",Equipe_Code:defaultTeam,Role:"",Capacite_ETP:"1",
+        Date:dc.ds,Motif:code,Statut:"Prévisionnel",Commentaire:`Import Excel · ${sheetName}`
+      });produced++;
+    }
+    if(produced)resources++;
+  }
+  if(!rows.length)throw Error("Aucune présence exploitable détectée dans cette feuille.");
+  if(unknown.size)throw Error("Motifs inconnus dans la feuille : "+[...unknown].join(", "));
+  return {headers:CSV_HEADER.slice(),rows,separator:"excel",sheetName,resources,dateCount:dateCols.length};
+}
+function analyzeExcelSheet(){
+  const parsed=excelSheetToCsvRows();
+  S.csvAnalysis={...parsed,...csvAnalyze(parsed)};
+  $("csvMessage").textContent=`Source Excel : ${parsed.sheetName} · ${parsed.resources} ressource(s) · ${parsed.dateCount} date(s).`;
+  csvRender();
+  $("csvMessage").textContent=`Excel « ${parsed.sheetName} » analysé · ${parsed.resources} ressource(s). ${S.csvAnalysis.newTeams?.size||0} équipe(s) et ${S.csvAnalysis.newResources.size} ressource(s) seront créées si nécessaire.`;
+  document.querySelector(".import-card:not(.excel-import-card)")?.scrollIntoView({behavior:"smooth",block:"start"});
+}
+
 function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={pilotage:["Cockpit","Disponibilité et prévisionnel"],previsionnel:["Prévisionnel","Saisies futures et confirmées"],saisie:["Saisie des temps — Saisie de masse","Remplissez rapidement les présences / absences pour plusieurs ressources"],alertes:["Alertes","Risques prévisionnels"],rapports:["Rapports","Dernières saisies"]};$("title").textContent=t[b.dataset.view][0];$("subtitle").textContent=t[b.dataset.view][1];if(b.dataset.view==="saisie")renderMassCalendar()})}
 defaults();nav();["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=load;$("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()-1,1);clearSelection()};$("nextMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()+1,1);clearSelection()};$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
-$("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});csvSetup();grist.ready({requiredAccess:"full"});load().catch(e=>notify(e.message||e));
+$("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});csvSetup();
+$("excelFile").onchange=()=>loadExcelWorkbook().catch(e=>{$("excelInfo").textContent=e.message;notify(e.message)});
+$("excelSheet").onchange=()=>{$("analyzeExcel").disabled=!$("excelSheet").value;$("excelInfo").textContent=$("excelSheet").value?`Feuille sélectionnée : ${$("excelSheet").value}`:""};
+$("analyzeExcel").onclick=()=>{try{analyzeExcelSheet()}catch(e){S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)}};grist.ready({requiredAccess:"full"});load().catch(e=>notify(e.message||e));

@@ -32,3 +32,14 @@ La nouvelle équipe reçoit :
 
 Les nouvelles ressources sont ensuite reliées à l'équipe créée.
 Ordre de traitement : équipes -> ressources -> présences.
+
+
+## V3.5 — Import Excel + choix explicite de la feuille
+- Le fichier Excel est chargé dans le navigateur.
+- Le widget liste les feuilles du classeur.
+- L'utilisateur doit choisir explicitement la feuille à importer.
+- Le calendrier horizontal est détecté automatiquement dans cette feuille.
+- Une cellule vide en jour ouvré peut être interprétée comme `P` (option cochée par défaut).
+- L'équipe par défaut est saisissable avant analyse.
+- Les données Excel sont normalisées vers le même format interne que le CSV.
+- Le même moteur de contrôle/import crée ensuite équipes, ressources et présences.
