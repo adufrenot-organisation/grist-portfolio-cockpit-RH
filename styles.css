@@ -63,3 +63,58 @@ svg{width:100%;height:300px;display:block}.gridline{stroke:#e5ebf0}.axis{fill:#7
   opacity:.6;
   cursor:not-allowed;
 }
+
+/* V3.9 — Actions juste au-dessus du calendrier */
+.action-card{margin-bottom:10px}
+
+/* V4 — menu Imports dédié */
+#imports .import-card{margin-bottom:12px}
+.page-intro{margin-bottom:12px}
+.page-intro h1{margin:0 0 4px;font-size:22px}
+.page-intro p{margin:0;color:var(--muted);font-size:12px}
+
+/* V4.1 — aide compacte sur les motifs */
+.motif-info-row{margin-top:8px}
+.motif-info-toggle{
+  border:0;
+  background:transparent;
+  color:var(--accent-dark);
+  padding:3px 0;
+  font-size:11px;
+  font-weight:800;
+}
+.motif-info-toggle:hover{text-decoration:underline}
+.motif-info-panel{
+  margin-top:8px;
+  padding:10px 12px;
+  border:1px solid #cfe8e6;
+  border-radius:10px;
+  background:#f7fcfb;
+}
+.motif-info-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:8px;
+}
+.motif-info-item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  font-size:11px;
+  color:#465766;
+}
+.motif-info-code{
+  min-width:38px;
+  height:28px;
+  padding:0 7px;
+  border-radius:7px;
+  display:grid;
+  place-items:center;
+  font-weight:900;
+}
+.motif-info-label{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}

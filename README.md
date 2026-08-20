@@ -87,3 +87,22 @@ Le bouton `Actualiser` :
 - affiche un état `Actualisation…` pendant le rechargement.
 
 Les données déjà enregistrées dans Grist ne sont évidemment pas supprimées.
+
+
+## V3.9
+Le bloc Actions de la saisie en masse a été déplacé après les blocs Import Excel/CSV et immédiatement au-dessus de la feuille de temps.
+
+
+## V4 — Menu Imports dédié
+Les blocs `Import Excel en masse` et `Import CSV en masse` ont été retirés de `Saisie des temps`.
+Un nouveau menu principal `Imports` regroupe les deux fonctions d'import, leurs analyses, prévisualisations et boutons de réinitialisation.
+La vue `Saisie des temps` reste dédiée à la saisie manuelle : filtres, motifs, actions et calendrier.
+
+
+## V4.1 — Aide sur les motifs
+Dans `Saisie des temps`, un bouton `ⓘ Motifs disponibles` ouvre un panneau compact.
+Le contenu est alimenté dynamiquement depuis `Motifs_RH` :
+- code ;
+- libellé ;
+- couleur.
+Le panneau peut être refermé pour conserver un maximum d'espace au calendrier.

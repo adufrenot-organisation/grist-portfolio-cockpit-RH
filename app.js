@@ -265,6 +265,7 @@ async function refreshCockpit(){
     renderAlerts();
     renderMassFilters();
     renderMassMotifs();
+    renderMotifInfo();
     renderMassCalendar();
 
     notify("Données actualisées");
@@ -276,8 +277,29 @@ async function refreshCockpit(){
   }
 }
 
+function renderMotifInfo(){
+  const grid=$("motifInfoGrid");
+  if(!grid)return;
+  const items=S.motifs.filter(m=>m.Actif!==false);
+  grid.innerHTML=items.length?items.map(m=>{
+    const pair=motifSoftColor(m.Code),bg=pair[0],fg=pair[1];
+    return `<div class="motif-info-item" title="${esc(m.Libelle||"")}">
+      <span class="motif-info-code" style="background:${bg};color:${fg}">${esc(m.Code)}</span>
+      <span class="motif-info-label">${esc(m.Libelle||"")}</span>
+    </div>`;
+  }).join(""):'<div class="empty">Aucun motif actif.</div>';
+}
+function toggleMotifInfo(){
+  const panel=$("motifInfoPanel"),btn=$("motifInfoToggle");
+  if(!panel||!btn)return;
+  const willShow=panel.hidden;
+  panel.hidden=!willShow;
+  btn.textContent=willShow?"ⓘ Masquer les motifs":"ⓘ Motifs disponibles";
+}
+
 function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={pilotage:["Cockpit","Disponibilité et prévisionnel"],previsionnel:["Prévisionnel","Saisies futures et confirmées"],saisie:["Saisie des temps — Saisie de masse","Remplissez rapidement les présences / absences pour plusieurs ressources"],alertes:["Alertes","Risques prévisionnels"],rapports:["Rapports","Dernières saisies"]};$("title").textContent=t[b.dataset.view][0];$("subtitle").textContent=t[b.dataset.view][1];if(b.dataset.view==="saisie")renderMassCalendar()})}
-defaults();nav();["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});$("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()-1,1);clearSelection()};$("nextMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()+1,1);clearSelection()};$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
+defaults();nav();["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
+$("motifInfoToggle").onclick=toggleMotifInfo;$("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()-1,1);clearSelection()};$("nextMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()+1,1);clearSelection()};$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
 $("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});
 $("resetCsv").onclick=resetCsvImport;csvSetup();
 $("excelFile").onchange=()=>loadExcelWorkbook().catch(e=>{$("excelInfo").textContent=e.message;notify(e.message)});
