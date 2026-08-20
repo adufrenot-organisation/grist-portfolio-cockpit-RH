@@ -210,3 +210,7 @@ La réinitialisation d'une feuille de temps propose maintenant deux portées :
 En mode période, les dates `Du` et `Au` sont obligatoires.
 Le compteur affiche uniquement les lignes de `Presences` qui seront supprimées.
 La suppression reste limitée à `Presences` : la ressource `Team` et son équipe ne sont jamais supprimées.
+
+
+## V5.4
+Réinitialisation déplacée dans une modale ouverte depuis Actions. Liste des ressources alimentée directement depuis Team, sans filtre équipe/actif.

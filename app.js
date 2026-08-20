@@ -354,22 +354,19 @@ async function markPastForecastAsDone(){
 
 
 function renderResetTimesheet(){
-  const sel=$("resetTimesheetPerson");
-  if(!sel)return;
+  const sel=$("resetTimesheetPerson");if(!sel)return;
   const current=sel.value;
-  const people=activeTeam().slice().sort((a,b)=>String(a.nom).localeCompare(String(b.nom)));
-  sel.innerHTML='<option value="">Choisir une ressource…</option>'+people.map(p=>`<option value="${p.id}">${esc(p.nom)}</option>`).join("");
+  const people=(S.team||[]).filter(p=>p&&p.id).slice().sort((a,b)=>String(a.nom||a.Nom||"").localeCompare(String(b.nom||b.Nom||""),"fr"));
+  sel.innerHTML='<option value="">Choisir une ressource…</option>'+people.map(p=>`<option value="${p.id}">${esc(p.nom||p.Nom||p.Name||("Ressource "+p.id))}</option>`).join("");
   if([...sel.options].some(o=>o.value===current))sel.value=current;
-  updateResetModeUi();
-  updateResetTimesheetCount();
+  updateResetModeUi();updateResetTimesheetCount();
 }
+function openResetTimesheetModal(){renderResetTimesheet();const m=$("resetTimesheetModal");if(m)m.hidden=false}
+function closeResetTimesheetModal(){const m=$("resetTimesheetModal");if(m)m.hidden=true}
 
-function updateResetModeUi(){
-  const mode=$("resetTimesheetMode")?.value||"all";
-  const show=mode==="period";
-  if($("resetPeriodFromWrap"))$("resetPeriodFromWrap").hidden=!show;
-  if($("resetPeriodToWrap"))$("resetPeriodToWrap").hidden=!show;
-}
+
+function updateResetModeUi(){const show=($("resetTimesheetMode")?.value||"all")==="period";if($("resetPeriodFields"))$("resetPeriodFields").hidden=!show}
+
 
 function selectedResetRows(){
   const rid=Number($("resetTimesheetPerson")?.value||0);
@@ -458,6 +455,7 @@ async function resetUserTimesheet(){
     if($("resetPeriodTo"))$("resetPeriodTo").value="";
     updateResetModeUi();
     updateResetTimesheetCount();
+    closeResetTimesheetModal();
   }finally{
     if(btn)btn.textContent="Réinitialiser la feuille de temps";
   }
@@ -483,6 +481,10 @@ $("excelSheet").onchange=()=>{$("analyzeExcel").disabled=!$("excelSheet").value;
 $("analyzeExcel").onclick=()=>{try{analyzeExcelSheet()}catch(e){S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)}};
 $("resetExcel").onclick=resetExcelImport;if($("refreshPastForecast"))$("refreshPastForecast").onclick=renderPastForecastCount;
 if($("markPastAsDone"))$("markPastAsDone").onclick=()=>markPastForecastAsDone().catch(e=>notify(e.message||e));
+if($("openResetTimesheet"))$("openResetTimesheet").onclick=openResetTimesheetModal;
+if($("closeResetTimesheet"))$("closeResetTimesheet").onclick=closeResetTimesheetModal;
+if($("cancelResetTimesheet"))$("cancelResetTimesheet").onclick=closeResetTimesheetModal;
+if($("resetTimesheetModal"))$("resetTimesheetModal").onclick=e=>{if(e.target===$("resetTimesheetModal"))closeResetTimesheetModal()};
 if($("resetTimesheetPerson"))$("resetTimesheetPerson").onchange=updateResetTimesheetCount;
 if($("resetTimesheetMode"))$("resetTimesheetMode").onchange=()=>{updateResetModeUi();updateResetTimesheetCount();};
 if($("resetPeriodFrom"))$("resetPeriodFrom").onchange=updateResetTimesheetCount;
