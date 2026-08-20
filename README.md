@@ -43,3 +43,12 @@ Ordre de traitement : équipes -> ressources -> présences.
 - L'équipe par défaut est saisissable avant analyse.
 - Les données Excel sont normalisées vers le même format interne que le CSV.
 - Le même moteur de contrôle/import crée ensuite équipes, ressources et présences.
+
+
+## V3.6 — Correctif des en-têtes CSV
+- suppression du BOM UTF-8 ;
+- prise en charge CRLF/CR/LF ;
+- suppression des espaces insécables ;
+- comparaison des en-têtes insensible à la casse, accents, espaces, `_` et `-` ;
+- `Commentaire`, ` commentaire ` ou variantes équivalentes sont normalisés ;
+- en cas d'erreur, le diagnostic affiche les colonnes réellement détectées.
