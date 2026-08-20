@@ -7,18 +7,53 @@
 <div class="card"><div class="section"><div><h2>Motifs</h2><p>Répartition sur la période</p></div></div><div class="bars" id="bars"></div></div></section>
 <section class="view" id="previsionnel"><div class="card"><div class="section"><div><h2>Prévisionnel</h2><p>Vision des saisies futures et confirmées.</p></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Ressource</th><th>Motif</th><th>Statut</th><th>Commentaire</th></tr></thead><tbody id="forecastRows"></tbody></table></div></div></section>
 <section class="view" id="saisie">
-<div class="mass-entry-head">
-  <div class="card filter-card"><div class="section"><div><h2>Filtrer les ressources</h2></div></div><label>Équipe<select id="massTeam"><option value="">Toutes les équipes</option></select></label><label class="check compact"><input id="massActiveOnly" type="checkbox" checked> Afficher uniquement les actifs</label></div>
-  <div class="card motif-card"><div class="section"><div><h2>Sélectionner le motif à appliquer</h2></div></div><div class="motif-picker" id="massMotifs"></div>
-<div class="motif-info-row">
-  <button class="motif-info-toggle" id="motifInfoToggle" type="button">ⓘ Motifs disponibles</button>
-</div>
-<div class="motif-info-panel" id="motifInfoPanel" hidden>
-  <div class="motif-info-grid" id="motifInfoGrid"></div>
-</div><div class="mass-help">1. Sélectionnez un motif &nbsp;&nbsp; 2. Cochez les jours concernés &nbsp;&nbsp; 3. Enregistrez la sélection</div></div></div><button class="btn secondary wide-btn" id="selectAllVisible">Tout sélectionner</button><button class="btn secondary wide-btn" id="clearSelection">Tout désélectionner</button><button class="btn danger wide-btn" id="deleteSelection">Effacer la sélection</button></div>
-</div>
-<div class="card action-card"><div class="section"><div><h2>Actions</h2></div>
-<div class="card mass-calendar-card"><div class="calendar-toolbar"><div class="resource-count" id="resourceCount">0 ressource</div><div class="calendar-tip">Sélectionnez un motif puis cochez plusieurs cases pour l’appliquer rapidement.</div><div class="month-nav"><button class="icon-btn" id="prevMonth">‹</button><div class="month-label" id="monthLabel"></div><button class="icon-btn" id="nextMonth">›</button></div></div><div class="calendar-scroll"><table class="mass-table"><thead id="massHead"></thead><tbody id="massBody"></tbody></table></div><div class="mass-footer"><label>Statut<select id="massStatus"><option>Prévisionnel</option><option>Confirmé</option><option>Réalisé</option></select></label><label class="comment-field">Commentaire<input id="massComment" placeholder="Commentaire optionnel"></label><button class="btn" id="saveMass">Enregistrer les modifications</button><div class="save-summary" id="saveSummary"></div></div></div>
+  <div class="mass-entry-head">
+    <div class="card filter-card">
+      <div class="section"><div><h2>Filtrer les ressources</h2></div></div>
+      <label>Équipe<select id="massTeam"><option value="">Toutes les équipes</option></select></label>
+      <label class="check compact"><input id="massActiveOnly" type="checkbox" checked> Afficher uniquement les actifs</label>
+    </div>
+
+    <div class="card motif-card">
+      <div class="section"><div><h2>Sélectionner le motif à appliquer</h2></div></div>
+      <div class="motif-picker" id="massMotifs"></div>
+      <div class="motif-info-row">
+        <button class="motif-info-toggle" id="motifInfoToggle" type="button">ⓘ Motifs disponibles</button>
+      </div>
+      <div class="motif-info-panel" id="motifInfoPanel" hidden>
+        <div class="motif-info-grid" id="motifInfoGrid"></div>
+      </div>
+      <div class="mass-help">1. Sélectionnez un motif &nbsp;&nbsp; 2. Cochez les jours concernés &nbsp;&nbsp; 3. Enregistrez la sélection</div>
+    </div>
+  </div>
+
+  <div class="card action-card">
+    <div class="section"><div><h2>Actions</h2></div></div>
+    <button class="btn secondary wide-btn" id="selectAllVisible">Tout sélectionner</button>
+    <button class="btn secondary wide-btn" id="clearSelection">Tout désélectionner</button>
+    <button class="btn danger wide-btn" id="deleteSelection">Effacer la sélection</button>
+  </div>
+
+  <div class="card mass-calendar-card">
+    <div class="calendar-toolbar">
+      <div class="resource-count" id="resourceCount">0 ressource</div>
+      <div class="calendar-tip">Sélectionnez un motif puis cochez plusieurs cases pour l’appliquer rapidement.</div>
+      <div class="month-nav">
+        <button class="icon-btn" id="prevMonth">‹</button>
+        <div class="month-label" id="monthLabel"></div>
+        <button class="icon-btn" id="nextMonth">›</button>
+      </div>
+    </div>
+    <div class="calendar-scroll">
+      <table class="mass-table"><thead id="massHead"></thead><tbody id="massBody"></tbody></table>
+    </div>
+    <div class="mass-footer">
+      <label>Statut<select id="massStatus"><option>Prévisionnel</option><option>Confirmé</option><option>Réalisé</option></select></label>
+      <label class="comment-field">Commentaire<input id="massComment" placeholder="Commentaire optionnel"></label>
+      <button class="btn" id="saveMass">Enregistrer les modifications</button>
+      <div class="save-summary" id="saveSummary"></div>
+    </div>
+  </div>
 </section>
 <section class="view" id="imports">
 <div class="page-intro"><h1>Imports en masse</h1><p>Importez un calendrier Excel ou un fichier CSV, contrôlez l'analyse puis écrivez les données dans Grist.</p></div>

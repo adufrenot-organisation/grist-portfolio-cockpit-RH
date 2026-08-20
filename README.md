@@ -106,3 +106,12 @@ Le contenu est alimenté dynamiquement depuis `Motifs_RH` :
 - libellé ;
 - couleur.
 Le panneau peut être refermé pour conserver un maximum d'espace au calendrier.
+
+
+## V4.2 — Correction de la page Saisie des temps
+Correction de la structure HTML du bloc Actions qui avait été cassée lors de son déplacement :
+- les boutons Actions sont de nouveau contenus dans leur carte ;
+- la carte Actions est placée juste au-dessus du calendrier ;
+- les trois boutons sont disposés horizontalement ;
+- le calendrier n'est plus imbriqué dans le bloc Actions ;
+- le panneau Motifs reste dans le bloc de sélection des motifs.
