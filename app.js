@@ -297,7 +297,16 @@ function toggleMotifInfo(){
   btn.textContent=willShow?"ⓘ Masquer les motifs":"ⓘ Motifs disponibles";
 }
 
-function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={pilotage:["Cockpit","Disponibilité et prévisionnel"],previsionnel:["Prévisionnel","Saisies futures et confirmées"],saisie:["Saisie des temps — Saisie de masse","Remplissez rapidement les présences / absences pour plusieurs ressources"],alertes:["Alertes","Risques prévisionnels"],rapports:["Rapports","Dernières saisies"]};$("title").textContent=t[b.dataset.view][0];$("subtitle").textContent=t[b.dataset.view][1];if(b.dataset.view==="saisie")renderMassCalendar()})}
+function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={
+      pilotage:["Cockpit RH","Disponibilité, capacité et alertes prévisionnelles"],
+      previsionnel:["Prévisionnel","Présences et absences futures ou confirmées"],
+      saisie:["Saisie de masse","Renseignez rapidement les présences et absences de plusieurs ressources"],
+      imports:["Imports","Importez des calendriers Excel ou CSV dans Grist"],
+      alertes:["Alertes","Alertes prévisionnelles selon les seuils configurés"],
+      rapports:["Rapports","Synthèse des dernières saisies enregistrées"]
+    };
+    $("title").textContent=t[b.dataset.view][0];
+    $("subtitle").textContent=t[b.dataset.view][1];if(b.dataset.view==="saisie")renderMassCalendar()})}
 defaults();nav();["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
 $("motifInfoToggle").onclick=toggleMotifInfo;$("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()-1,1);clearSelection()};$("nextMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()+1,1);clearSelection()};$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
 $("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});

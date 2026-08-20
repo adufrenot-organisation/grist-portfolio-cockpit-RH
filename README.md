@@ -139,3 +139,16 @@ Le moteur CSV accepte désormais :
 - également `JJ-MM-AAAA` et `JJ.MM.AAAA`.
 
 Toutes les dates sont normalisées en interne vers `AAAA-MM-JJ` avant comparaison et import dans Grist.
+
+
+## V4.6 — Intitulés des écrans
+Les titres ont été harmonisés et rendus distincts :
+- Cockpit RH
+- Prévisionnel
+- Saisie de masse
+- Imports
+- Alertes
+- Rapports
+
+L'ancien intitulé redondant `Saisie des temps — Saisie de masse` a été supprimé.
+Le menu `Imports` possède désormais également son propre titre et sous-titre.
