@@ -187,3 +187,26 @@ Les lignes futures, les lignes `Confirmé` et les lignes déjà `Réalisé` ne s
 
 ## V5.1 — Bulles explicatives des KPI
 Ajout d'une icône `ⓘ` à côté de Taux de présence, Absence, Télétravail et Formation. Les bulles expliquent la formule, les motifs pris en compte et les exclusions. Elles sont accessibles au survol et au focus clavier.
+
+
+## V5.2 — Réinitialisation complète de la feuille de temps d'une ressource
+Dans `Saisie des temps`, un bloc permet de sélectionner une ressource et de supprimer toutes ses lignes dans `Presences`.
+
+Sécurité :
+- le nombre de lignes à supprimer est affiché avant l'action ;
+- double confirmation ;
+- seule la table `Presences` est concernée ;
+- la ligne correspondante dans `Team` n'est jamais supprimée ;
+- l'équipe et les allocations PMO ne sont pas modifiées.
+
+La suppression utilise `TableOperations.destroy(recordIds)` de l'API Grist.
+
+
+## V5.3 — Réinitialisation totale ou sur une période
+La réinitialisation d'une feuille de temps propose maintenant deux portées :
+- `Toute la feuille de temps`
+- `Une période donnée`
+
+En mode période, les dates `Du` et `Au` sont obligatoires.
+Le compteur affiche uniquement les lignes de `Presences` qui seront supprimées.
+La suppression reste limitée à `Presences` : la ressource `Team` et son équipe ne sont jamais supprimées.

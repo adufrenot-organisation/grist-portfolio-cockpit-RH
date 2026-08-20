@@ -273,6 +273,7 @@ async function refreshCockpit(){
     renderMotifInfo();
     renderMassCalendar();
 
+    renderResetTimesheet();
     notify("Données actualisées");
   }finally{
     if(btn){
@@ -351,6 +352,118 @@ async function markPastForecastAsDone(){
   }
 }
 
+
+function renderResetTimesheet(){
+  const sel=$("resetTimesheetPerson");
+  if(!sel)return;
+  const current=sel.value;
+  const people=activeTeam().slice().sort((a,b)=>String(a.nom).localeCompare(String(b.nom)));
+  sel.innerHTML='<option value="">Choisir une ressource…</option>'+people.map(p=>`<option value="${p.id}">${esc(p.nom)}</option>`).join("");
+  if([...sel.options].some(o=>o.value===current))sel.value=current;
+  updateResetModeUi();
+  updateResetTimesheetCount();
+}
+
+function updateResetModeUi(){
+  const mode=$("resetTimesheetMode")?.value||"all";
+  const show=mode==="period";
+  if($("resetPeriodFromWrap"))$("resetPeriodFromWrap").hidden=!show;
+  if($("resetPeriodToWrap"))$("resetPeriodToWrap").hidden=!show;
+}
+
+function selectedResetRows(){
+  const rid=Number($("resetTimesheetPerson")?.value||0);
+  if(!rid)return [];
+
+  let rows=S.presence.filter(r=>r.Ressource===rid);
+  const mode=$("resetTimesheetMode")?.value||"all";
+
+  if(mode==="period"){
+    const from=$("resetPeriodFrom")?.value||"";
+    const to=$("resetPeriodTo")?.value||"";
+    if(!from||!to)return [];
+    if(to<from)return [];
+    rows=rows.filter(r=>{
+      const d=iso(r.Date);
+      return d>=from&&d<=to;
+    });
+  }
+  return rows;
+}
+
+function updateResetTimesheetCount(){
+  const count=$("resetTimesheetCount"),btn=$("resetTimesheetBtn");
+  if(!count||!btn)return;
+
+  const rid=Number($("resetTimesheetPerson")?.value||0);
+  const mode=$("resetTimesheetMode")?.value||"all";
+  const from=$("resetPeriodFrom")?.value||"";
+  const to=$("resetPeriodTo")?.value||"";
+
+  if(mode==="period"&&from&&to&&to<from){
+    count.textContent="Période invalide";
+    btn.disabled=true;
+    return;
+  }
+
+  const n=selectedResetRows().length;
+  count.textContent=`${n} ligne${n>1?"s":""}`;
+  btn.disabled=!rid||n===0||(mode==="period"&&(!from||!to));
+}
+
+async function resetUserTimesheet(){
+  const rid=Number($("resetTimesheetPerson")?.value||0);
+  if(!rid)return notify("Sélectionnez une ressource.");
+
+  const mode=$("resetTimesheetMode")?.value||"all";
+  const from=$("resetPeriodFrom")?.value||"";
+  const to=$("resetPeriodTo")?.value||"";
+
+  if(mode==="period"){
+    if(!from||!to)return notify("Renseignez la période à réinitialiser.");
+    if(to<from)return notify("La date de fin doit être postérieure à la date de début.");
+  }
+
+  const pe=resource(rid);
+  const rows=selectedResetRows();
+  if(!rows.length)return notify("Aucune saisie à supprimer pour cette sélection.");
+
+  const name=pe?.nom||`Ressource ${rid}`;
+  const scope=mode==="all"
+    ?"toute la feuille de temps"
+    :`la période du ${new Date(from+"T12:00:00").toLocaleDateString("fr-FR")} au ${new Date(to+"T12:00:00").toLocaleDateString("fr-FR")}`;
+
+  const first=window.confirm(`Réinitialiser ${scope} de « ${name} » ?\n\n${rows.length} ligne(s) de présence seront supprimées.`);
+  if(!first)return;
+
+  const second=window.confirm(`CONFIRMATION FINALE\n\nSupprimer définitivement ${rows.length} ligne(s) de Presences pour « ${name} » (${scope}) ?\n\nLa ressource Team ne sera pas supprimée.`);
+  if(!second)return;
+
+  const btn=$("resetTimesheetBtn");
+  if(btn){btn.disabled=true;btn.textContent="Suppression…";}
+  try{
+    const ids=rows.map(r=>r.id).filter(Number.isFinite);
+    if(!ids.length)throw new Error("Aucun identifiant de présence exploitable.");
+
+    await grist.getTable(T.presence).destroy(ids);
+
+    notify(`${ids.length} ligne(s) supprimée(s) pour ${name}`);
+    S.changes.clear();
+    S.selectedCells.clear();
+    await load();
+
+    if($("resetTimesheetPerson"))$("resetTimesheetPerson").value="";
+    if($("resetTimesheetMode"))$("resetTimesheetMode").value="all";
+    if($("resetPeriodFrom"))$("resetPeriodFrom").value="";
+    if($("resetPeriodTo"))$("resetPeriodTo").value="";
+    updateResetModeUi();
+    updateResetTimesheetCount();
+  }finally{
+    if(btn)btn.textContent="Réinitialiser la feuille de temps";
+  }
+}
+
+
 function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={
       pilotage:["Cockpit RH","Disponibilité, capacité et alertes prévisionnelles"],
       previsionnel:["Prévisionnel","Présences et absences futures ou confirmées"],
@@ -370,4 +483,9 @@ $("excelSheet").onchange=()=>{$("analyzeExcel").disabled=!$("excelSheet").value;
 $("analyzeExcel").onclick=()=>{try{analyzeExcelSheet()}catch(e){S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)}};
 $("resetExcel").onclick=resetExcelImport;if($("refreshPastForecast"))$("refreshPastForecast").onclick=renderPastForecastCount;
 if($("markPastAsDone"))$("markPastAsDone").onclick=()=>markPastForecastAsDone().catch(e=>notify(e.message||e));
+if($("resetTimesheetPerson"))$("resetTimesheetPerson").onchange=updateResetTimesheetCount;
+if($("resetTimesheetMode"))$("resetTimesheetMode").onchange=()=>{updateResetModeUi();updateResetTimesheetCount();};
+if($("resetPeriodFrom"))$("resetPeriodFrom").onchange=updateResetTimesheetCount;
+if($("resetPeriodTo"))$("resetPeriodTo").onchange=updateResetTimesheetCount;
+if($("resetTimesheetBtn"))$("resetTimesheetBtn").onclick=()=>resetUserTimesheet().catch(e=>notify(e.message||e));
 grist.ready({requiredAccess:"full"});load().catch(e=>notify(e.message||e));

@@ -54,6 +54,50 @@
     <button class="btn danger wide-btn" id="deleteSelection">Effacer la sélection</button>
   </div>
 
+  
+  <div class="card reset-timesheet-card">
+    <div class="section">
+      <div>
+        <h2>Réinitialiser une feuille de temps</h2>
+        <p>Supprime les lignes de présence d'une ressource, soit en totalité, soit sur une période donnée.</p>
+      </div>
+      <span class="danger-badge">Action destructive</span>
+    </div>
+
+    <div class="reset-mode-row">
+      <label>Ressource
+        <select id="resetTimesheetPerson">
+          <option value="">Choisir une ressource…</option>
+        </select>
+      </label>
+
+      <label>Portée
+        <select id="resetTimesheetMode">
+          <option value="all">Toute la feuille de temps</option>
+          <option value="period">Une période donnée</option>
+        </select>
+      </label>
+
+      <label class="reset-period-field" id="resetPeriodFromWrap" hidden>Du
+        <input id="resetPeriodFrom" type="date">
+      </label>
+
+      <label class="reset-period-field" id="resetPeriodToWrap" hidden>Au
+        <input id="resetPeriodTo" type="date">
+      </label>
+    </div>
+
+    <div class="reset-timesheet-actions">
+      <div class="reset-timesheet-count" id="resetTimesheetCount">0 ligne</div>
+      <button class="btn danger" id="resetTimesheetBtn" disabled>Réinitialiser la feuille de temps</button>
+    </div>
+
+    <div class="reset-timesheet-help">
+      Cette action supprime uniquement les enregistrements de <code>Presences</code> correspondant à la ressource et à la portée choisie.
+      Elle ne supprime ni la ressource dans <code>Team</code>, ni son équipe.
+    </div>
+  </div>
+
   <div class="card mass-calendar-card">
     <div class="calendar-toolbar">
       <div class="resource-count" id="resourceCount">0 ressource</div>
