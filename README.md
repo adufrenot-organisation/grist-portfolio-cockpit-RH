@@ -157,3 +157,7 @@ Le menu `Imports` possède désormais également son propre titre et sous-titre.
 ## V4.7 — Intitulé Saisie des temps
 Le menu et le titre de la vue `saisie` utilisent désormais `Saisie des temps`.
 La notion de saisie de masse reste une fonctionnalité de cet écran et non son intitulé.
+
+
+## V4.8
+Correction complète de l'import CSV Excel : dates françaises/ISO et statuts/encodages Excel normalisés avant validation.
