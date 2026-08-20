@@ -128,3 +128,14 @@ Le code utilisait deux noms différents pour la même fonction de rendu des rapp
 - `renderRecent()`
 
 La V4.4 utilise désormais uniquement `renderRecent()` et la fonction est sécurisée si le tableau `recent` n'est pas présent dans la vue.
+
+
+## V4.5 — CSV Excel plus robuste
+Le moteur CSV accepte désormais :
+- UTF-8 avec ou sans BOM ;
+- Windows-1252 / ANSI, fréquent avec Excel Windows ;
+- dates `AAAA-MM-JJ` ;
+- dates `JJ/MM/AAAA` ;
+- également `JJ-MM-AAAA` et `JJ.MM.AAAA`.
+
+Toutes les dates sont normalisées en interne vers `AAAA-MM-JJ` avant comparaison et import dans Grist.
