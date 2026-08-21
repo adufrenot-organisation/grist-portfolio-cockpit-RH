@@ -323,3 +323,7 @@ Renommage fonctionnel global de l'interface :
 - les libellés visibles associés utilisent désormais la terminologie présence / absence.
 
 Les noms techniques Grist, notamment la table `Presences`, ne sont pas modifiés afin de préserver la compatibilité avec la base existante.
+
+
+## V6.7 — Alertes retirées du Cockpit
+Le bloc Alertes a été supprimé de la page Cockpit RH. Les alertes restent disponibles dans l'onglet Alertes. Le moteur de calcul et les seuils ne sont pas modifiés.
