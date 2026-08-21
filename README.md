@@ -90,17 +90,17 @@ Les données déjà enregistrées dans Grist ne sont évidemment pas supprimées
 
 
 ## V3.9
-Le bloc Actions de la saisie en masse a été déplacé après les blocs Import Excel/CSV et immédiatement au-dessus de la feuille de temps.
+Le bloc Actions de la saisie en masse a été déplacé après les blocs Import Excel/CSV et immédiatement au-dessus de la feuille de présence.
 
 
 ## V4 — Menu Imports dédié
-Les blocs `Import Excel en masse` et `Import CSV en masse` ont été retirés de `Saisie des temps`.
+Les blocs `Import Excel en masse` et `Import CSV en masse` ont été retirés de `Feuille de présence`.
 Un nouveau menu principal `Imports` regroupe les deux fonctions d'import, leurs analyses, prévisualisations et boutons de réinitialisation.
-La vue `Saisie des temps` reste dédiée à la saisie manuelle : filtres, motifs, actions et calendrier.
+La vue `Feuille de présence` reste dédiée à la saisie manuelle : filtres, motifs, actions et calendrier.
 
 
 ## V4.1 — Aide sur les motifs
-Dans `Saisie des temps`, un bouton `ⓘ Motifs disponibles` ouvre un panneau compact.
+Dans `Feuille de présence`, un bouton `ⓘ Motifs disponibles` ouvre un panneau compact.
 Le contenu est alimenté dynamiquement depuis `Motifs_RH` :
 - code ;
 - libellé ;
@@ -108,7 +108,7 @@ Le contenu est alimenté dynamiquement depuis `Motifs_RH` :
 Le panneau peut être refermé pour conserver un maximum d'espace au calendrier.
 
 
-## V4.2 — Correction de la page Saisie des temps
+## V4.2 — Correction de la page Feuille de présence
 Correction de la structure HTML du bloc Actions qui avait été cassée lors de son déplacement :
 - les boutons Actions sont de nouveau contenus dans leur carte ;
 - la carte Actions est placée juste au-dessus du calendrier ;
@@ -150,12 +150,12 @@ Les titres ont été harmonisés et rendus distincts :
 - Alertes
 - Rapports
 
-L'ancien intitulé redondant `Saisie des temps — Saisie de masse` a été supprimé.
+L'ancien intitulé redondant `Feuille de présence — Saisie de masse` a été supprimé.
 Le menu `Imports` possède désormais également son propre titre et sous-titre.
 
 
-## V4.7 — Intitulé Saisie des temps
-Le menu et le titre de la vue `saisie` utilisent désormais `Saisie des temps`.
+## V4.7 — Intitulé Feuille de présence
+Le menu et le titre de la vue `saisie` utilisent désormais `Feuille de présence`.
 La notion de saisie de masse reste une fonctionnalité de cet écran et non son intitulé.
 
 
@@ -189,8 +189,8 @@ Les lignes futures, les lignes `Confirmé` et les lignes déjà `Réalisé` ne s
 Ajout d'une icône `ⓘ` à côté de Taux de présence, Absence, Télétravail et Formation. Les bulles expliquent la formule, les motifs pris en compte et les exclusions. Elles sont accessibles au survol et au focus clavier.
 
 
-## V5.2 — Réinitialisation complète de la feuille de temps d'une ressource
-Dans `Saisie des temps`, un bloc permet de sélectionner une ressource et de supprimer toutes ses lignes dans `Presences`.
+## V5.2 — Réinitialisation complète de la feuille de présence d'une ressource
+Dans `Feuille de présence`, un bloc permet de sélectionner une ressource et de supprimer toutes ses lignes dans `Presences`.
 
 Sécurité :
 - le nombre de lignes à supprimer est affiché avant l'action ;
@@ -203,8 +203,8 @@ La suppression utilise `TableOperations.destroy(recordIds)` de l'API Grist.
 
 
 ## V5.3 — Réinitialisation totale ou sur une période
-La réinitialisation d'une feuille de temps propose maintenant deux portées :
-- `Toute la feuille de temps`
+La réinitialisation d'une feuille de présence propose maintenant deux portées :
+- `Toute la feuille de présence`
 - `Une période donnée`
 
 En mode période, les dates `Du` et `Au` sont obligatoires.
@@ -244,7 +244,7 @@ Une période verrouillée :
 - est grisée avec un cadenas dans la grille ;
 - ne peut pas être modifiée manuellement ;
 - bloque les lignes d'import CSV/Excel correspondantes ;
-- bloque une réinitialisation de feuille de temps qui touche cette période ;
+- bloque une réinitialisation de feuille de présence qui touche cette période ;
 - est exclue du passage automatique Prévisionnel -> Réalisé.
 
 Le déverrouillage est manuel et passe `Verrouille` à `false`, sans supprimer la ligne.
@@ -282,7 +282,7 @@ Correction :
 
 
 ## V6.4 — Initialisation d'un calendrier
-Nouvelle action `📅 Initialiser un calendrier` dans le bloc Actions.
+Nouvelle action `📅 Initialiser une feuille de présence` dans le bloc Actions.
 - ressource au choix ;
 - année entière ou plage Du/Au ;
 - motif jours ouvrés, par défaut P ;
@@ -313,3 +313,13 @@ La prévisualisation distingue :
 - mises à jour ;
 - jours verrouillés ignorés ;
 - jours existants conservés.
+
+
+## V6.6 — Terminologie Feuille de présence
+Renommage fonctionnel global de l'interface :
+- `Saisie des temps` devient `Feuille de présence` ;
+- `Réinitialiser une feuille de temps` devient `Réinitialiser une feuille de présence` ;
+- l'action calendrier devient `Initialiser / modifier une feuille de présence` ;
+- les libellés visibles associés utilisent désormais la terminologie présence / absence.
+
+Les noms techniques Grist, notamment la table `Presences`, ne sont pas modifiés afin de préserver la compatibilité avec la base existante.

@@ -1,4 +1,4 @@
-const APP_VERSION="V6.5";
+const APP_VERSION="V6.6";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -574,7 +574,7 @@ async function resetUserTimesheet(){
 
   const name=pe?.nom||`Ressource ${rid}`;
   const scope=mode==="all"
-    ?"toute la feuille de temps"
+    ?"toute la feuille de présence"
     :`la période du ${new Date(from+"T12:00:00").toLocaleDateString("fr-FR")} au ${new Date(to+"T12:00:00").toLocaleDateString("fr-FR")}`;
 
   const first=window.confirm(`Réinitialiser ${scope} de « ${name} » ?\n\n${rows.length} ligne(s) de présence seront supprimées.`);
@@ -604,7 +604,7 @@ async function resetUserTimesheet(){
     updateResetTimesheetCount();
     closeResetTimesheetModal();
   }finally{
-    if(btn)btn.textContent="Réinitialiser la feuille de temps";
+    if(btn)btn.textContent="Réinitialiser la feuille de présence";
   }
 }
 
@@ -698,7 +698,7 @@ async function initializeCalendar(){
   const modeLabel=action==="upsert"?"Modifier en masse":"Initialiser";
 
   const message=
-    `${modeLabel} le calendrier de « ${pe?.nom||"la ressource"} » ?\n\n`+
+    `${modeLabel} le feuille de présence de « ${pe?.nom||"la ressource"} » ?\n\n`+
     `${plan.creates.length} création(s)\n`+
     `${plan.updates.length} mise(s) à jour\n`+
     `${plan.locked} date(s) verrouillée(s) ignorée(s)\n`+
@@ -740,14 +740,14 @@ async function initializeCalendar(){
     await load();
     closeInitCalendarModal();
   }finally{
-    if(btn)btn.textContent="Initialiser / modifier le calendrier";
+    if(btn)btn.textContent="Initialiser / modifier la feuille de présence";
   }
 }
 
 function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={
       pilotage:["Cockpit RH","Disponibilité, capacité et alertes prévisionnelles"],
       previsionnel:["Prévisionnel","Présences et absences futures ou confirmées"],
-      saisie:["Saisie des temps","Saisie rapide des présences et absences pour plusieurs ressources"],
+      saisie:["Feuille de présence","Saisie rapide des présences et absences pour plusieurs ressources"],
       imports:["Imports","Importez des calendriers Excel ou CSV dans Grist"],
       alertes:["Alertes","Alertes prévisionnelles selon les seuils configurés"],
       rapports:["Rapports","Synthèse des dernières saisies enregistrées"]
