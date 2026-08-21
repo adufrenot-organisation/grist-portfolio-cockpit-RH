@@ -1,4 +1,4 @@
-const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes"};
+const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
   if (Array.isArray(data)) return data;
@@ -18,18 +18,60 @@ function gristRows(data, tableName="") {
   }
   return rows;
 }
-const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set()};
+const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full"};
 const $=id=>document.getElementById(id),num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d,esc=(s="")=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const date=v=>typeof v==="number"?new Date(v*1000):Array.isArray(v)&&v[0]==="D"?new Date(v[1]*1000):new Date(v);
 const iso=v=>{const d=date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 const epoch=s=>Math.floor(new Date(`${s}T12:00:00`).getTime()/1000),resource=id=>S.team.find(x=>x.id===Number(id)),motif=id=>S.motifs.find(x=>x.id===Number(id));
 const notify=m=>{const t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1800)};
 function defaults(){const a=new Date(),b=new Date(a);b.setDate(b.getDate()+30);$("from").value=iso(a);$("to").value=iso(b);S.month=new Date(a.getFullYear(),a.getMonth(),1)}
+
+function canWriteCockpit(){return S.accessLevel==="full"}
+function activeLocks(){return (S.locks||[]).filter(l=>l.Verrouille!==false)}
+function lockDateString(v){try{return iso(v)}catch(_){return ""}}
+function lockForDate(ds){return activeLocks().find(l=>{const a=lockDateString(l.Date_Debut),b=lockDateString(l.Date_Fin);return a&&b&&ds>=a&&ds<=b})||null}
+function isDateLocked(v){const ds=typeof v==="string"?v:iso(v);return !!lockForDate(ds)}
+
+async function loadLocks(){
+  try{
+    const available=await grist.docApi.listTables();
+    S.locksTableAvailable=available.includes(T.locks);
+    S.locks=S.locksTableAvailable?gristRows(await grist.docApi.fetchTable(T.locks),T.locks):[];
+  }catch(e){console.warn("Verrous",e);S.locks=[];S.locksTableAvailable=false}
+}
+function renderLockBadge(){
+  const n=activeLocks().length;
+  if($("lockCountBadge"))$("lockCountBadge").textContent=n?`(${n})`:"";
+  if($("activeLockCount"))$("activeLockCount").textContent=String(n);
+}
+function renderPeriodLocks(){
+  renderLockBadge();
+  const list=$("periodLockList");if(!list)return;
+  const ro=!canWriteCockpit();
+  if($("lockReadonlyWarning"))$("lockReadonlyWarning").hidden=!ro;
+  ["lockLabel","lockFrom","lockTo","lockComment","createPeriodLock"].forEach(id=>{if($(id))$(id).disabled=ro||!S.locksTableAvailable});
+  if(!S.locksTableAvailable){list.innerHTML='<div class="empty">Table Verrous_Periodes_RH absente. Appliquez la migration V6.</div>';return}
+  const rows=activeLocks().slice().sort((a,b)=>lockDateString(a.Date_Debut).localeCompare(lockDateString(b.Date_Debut)));
+  list.innerHTML=rows.length?rows.map(l=>{const a=lockDateString(l.Date_Debut),b=lockDateString(l.Date_Fin);return `<div class="lock-row" data-id="${l.id}"><div class="lock-icon">🔒</div><div class="lock-main"><strong>${esc(l.Libelle||"Période verrouillée")}</strong><span>${new Date(a+"T12:00:00").toLocaleDateString("fr-FR")} → ${new Date(b+"T12:00:00").toLocaleDateString("fr-FR")}</span>${l.Commentaire?`<small>${esc(l.Commentaire)}</small>`:""}</div><button class="btn secondary unlock-period-btn" type="button" ${ro?"disabled":""}>Déverrouiller</button></div>`}).join(""):'<div class="empty">Aucune période verrouillée.</div>';
+  list.querySelectorAll(".unlock-period-btn").forEach(btn=>btn.onclick=async()=>{if(!canWriteCockpit())return notify("Accès en lecture.");const id=Number(btn.closest(".lock-row").dataset.id),l=S.locks.find(x=>x.id===id);if(!l)return;if(!window.confirm(`Déverrouiller « ${l.Libelle||"cette période"} » ?`))return;await grist.getTable(T.locks).update({id,fields:{Verrouille:false}});await loadLocks();renderPeriodLocks();renderMassCalendar();notify("Période déverrouillée")});
+}
+function openPeriodLocksModal(){renderPeriodLocks();const m=$("periodLocksModal");if(m){m.hidden=false;m.style.display="flex";document.body.classList.add("modal-open")}}
+function closePeriodLocksModal(){const m=$("periodLocksModal");if(m){m.hidden=true;m.style.display="none";document.body.classList.remove("modal-open")}}
+async function createPeriodLock(){
+  if(!canWriteCockpit())return notify("Accès en lecture.");
+  if(!S.locksTableAvailable)return notify("Table Verrous_Periodes_RH absente.");
+  const a=$("lockFrom").value,b=$("lockTo").value;if(!a||!b)return notify("Renseignez la période.");if(b<a)return notify("Période invalide.");
+  const overlaps=activeLocks().filter(l=>a<=lockDateString(l.Date_Fin)&&b>=lockDateString(l.Date_Debut));
+  if(overlaps.length&&!window.confirm(`Chevauche ${overlaps.length} période(s) verrouillée(s). Continuer ?`))return;
+  await grist.getTable(T.locks).create({fields:{Libelle:$("lockLabel").value.trim()||`Verrou ${a} → ${b}`,Date_Debut:epoch(a),Date_Fin:epoch(b),Verrouille:true,Commentaire:$("lockComment").value.trim()}});
+  ["lockLabel","lockFrom","lockTo","lockComment"].forEach(id=>$(id).value="");
+  await loadLocks();renderPeriodLocks();renderMassCalendar();notify("Période verrouillée");
+}
 async function load(){
   $("sync").textContent="Synchronisation…";
   try {
     const available = await grist.docApi.listTables();
-    const missing = Object.values(T).filter(name => !available.includes(name));
+    const required=[T.team,T.teams,T.motifs,T.presence,T.alerts];const missing=required.filter(name=>!available.includes(name));
     if (missing.length) throw new Error(`Tables Grist absentes : ${missing.join(", ")}`);
     const [a,b,c,d,e]=await Promise.all([
       grist.docApi.fetchTable(T.team),
@@ -41,6 +83,7 @@ async function load(){
     S.team=gristRows(a,"Team"); S.teams=gristRows(b,"Team_ref"); S.motifs=gristRows(c,"Motifs_RH"); S.presence=gristRows(d,"Presences"); S.params=gristRows(e,"Parametres_Alertes");
     if(!S.visible.size) S.motifs.filter(x=>x.Actif!==false).forEach(x=>S.visible.add(x.id));
     $("sync").textContent=`Synchronisé · Ressources ${S.team.length} · Présences ${S.presence.length}`;
+    await loadLocks();
     render();
     if (!S.team.length) notify("La table Team est vide : aucune ressource à afficher");
   } catch(e) {
@@ -51,7 +94,7 @@ async function load(){
   }
 }
 function activeTeam(){return S.team.filter(x=>x.actif!==false)}
-function render(){const opts=activeTeam().sort((a,b)=>String(a.nom).localeCompare(String(b.nom))).map(x=>`<option value="${x.id}">${esc(x.nom)}</option>`).join("");$("person").innerHTML='<option value="">Toute l’équipe</option>'+opts;chips();pilotage();renderRecent();alerts();renderForecast();renderPastForecastCount();renderMassFilters();renderMassMotifs();renderMotifInfo();renderMassCalendar()}
+function render(){const opts=activeTeam().sort((a,b)=>String(a.nom).localeCompare(String(b.nom))).map(x=>`<option value="${x.id}">${esc(x.nom)}</option>`).join("");$("person").innerHTML='<option value="">Toute l’équipe</option>'+opts;chips();pilotage();renderRecent();alerts();renderForecast();renderPastForecastCount();renderMassFilters();renderMassMotifs();renderMotifInfo();renderMassCalendar();renderLockBadge()}
 function chips(){$("chips").innerHTML=S.motifs.filter(x=>x.Actif!==false&&!["F","WE"].includes(x.Code)).map(x=>`<button class="chip ${S.visible.has(x.id)?"on":"off"}" data-id="${x.id}">${esc(x.Code)}</button>`).join("");$("chips").querySelectorAll("button").forEach(b=>b.onclick=()=>{const id=Number(b.dataset.id);S.visible.has(id)?S.visible.delete(id):S.visible.add(id);chips();pilotage()})}
 function selected(){const a=new Date($("from").value+"T00:00:00"),b=new Date($("to").value+"T23:59:59"),pid=Number($("person").value||0);return S.presence.filter(x=>{const d=date(x.Date);return d>=a&&d<=b&&(!pid||x.Ressource===pid)&&S.visible.has(x.Motif)})}
 function pilotage(){const rr=selected();let work=0,p=0,a=0,tl=0,fo=0;const count={};rr.forEach(r=>{const m=motif(r.Motif);if(!m)return;const excluded=["WE","F"].includes(m.Code)||m.Compte_Capacite===false;if(!excluded){work++;p+=num(m.Presence_Equivalent);a+=num(m.Absence_Equivalent)}if(["TL","TE","TLE"].includes(m.Code))tl+=num(m.Presence_Equivalent,1);if(m.Code==="FO")fo+=num(m.Presence_Equivalent,1);count[m.id]=(count[m.id]||0)+1});$("presenceKpi").textContent=`${(work?p/work*100:0).toFixed(1)} %`;$("presenceSub").textContent=`${p.toFixed(1)} / ${work} jours-ressources travaillables`;$("absenceKpi").textContent=a.toFixed(1);$("remoteKpi").textContent=tl.toFixed(1);$("formationKpi").textContent=fo.toFixed(1);$("scope").textContent=$("person").value?(resource($("person").value)?.nom||"Ressource"):"Équipe";bars(count);chart(rr);S.alerts=compute();list($("preview"),S.alerts.slice(0,6));$("count").textContent=S.alerts.length}
@@ -101,12 +144,12 @@ function renderMotifVisibility(){
 }
 function showAllGridMotifs(){S.hiddenGridMotifs.clear();renderMotifVisibility();renderMassCalendar()}
 function hideAllGridMotifs(){S.motifs.filter(m=>m.Actif!==false).forEach(m=>S.hiddenGridMotifs.add(m.id));renderMotifVisibility();renderMassCalendar()}
-function renderMassCalendar(){const res=massResources(),days=daysInMonth(S.month),today=iso(new Date());$("resourceCount").textContent=`${res.length} ressource${res.length>1?"s":""} affichée${res.length>1?"s":""}`;$("monthLabel").textContent=S.month.toLocaleDateString("fr-FR",{month:"long",year:"numeric"}).replace(/^./,c=>c.toUpperCase());$("massHead").innerHTML=`<tr><th class="sticky-name">Ressource</th><th class="sticky-team">Équipe</th>${days.map(d=>{const w=[0,6].includes(d.getDay()),ds=iso(d);return `<th class="day-head ${w?"weekend":""}">${d.toLocaleDateString("fr-FR",{weekday:"short"}).replace(".","")}<strong>${String(d.getDate()).padStart(2,"0")}</strong></th>`}).join("")}</tr>`;$("massBody").innerHTML=res.map(r=>`<tr><td class="sticky-name"><div class="resource-name"><span class="avatar">${initials(r.nom)}</span><span>${esc(r.nom)}</span></div></td><td class="sticky-team">${esc(teamRef(r.equipe)?.Libelle||teamRef(r.equipe)?.Code||"—")}</td>${days.map(d=>{const ds=iso(d),key=cellKey(r.id,ds),mid=displayMotifForCell(r.id,ds),m=motif(mid),weekend=[0,6].includes(d.getDay()),selected=S.selectedCells.has(key),changed=S.changes.has(key),hidden=!!(m&&S.hiddenGridMotifs.has(m.id)),shown=m&&!hidden,colors=shown?motifSoftColor(m.Code):["#fff","#fff"];return `<td class="resource-cell ${weekend?"weekend":""} ${selected?"selected":""} ${shown?"has-value":""} ${hidden?"motif-hidden":""}" title="${hidden?esc((m.Libelle||m.Code)+" — masqué"):""}"><button class="cell-toggle" data-r="${r.id}" data-d="${ds}"><span class="cell-box" style="${shown?`background:${colors[0]};color:${colors[1]};border:1px solid ${colors[1]}44`:""}">${shown?esc(m.Code):""}</span>${hidden?'<span class="hidden-motif-dot"></span>':""}${changed?'<span class="modified-dot"></span>':""}</button></td>`}).join("")}</tr>`).join("");$("massBody").querySelectorAll(".cell-toggle").forEach(b=>b.onclick=()=>toggleCell(Number(b.dataset.r),b.dataset.d));$("saveSummary").textContent=S.changes.size?`${S.changes.size} modification${S.changes.size>1?"s":""} en attente`:""}
-function toggleCell(resourceId,dateStr){const key=cellKey(resourceId,dateStr),old=presenceFor(resourceId,dateStr);if(!S.selectedMotif)return notify("Sélectionnez d'abord un motif.");S.selectedCells.add(key);S.changes.set(key,S.selectedMotif);renderMassCalendar()}
-function selectAllVisible(){if(!S.selectedMotif)return notify("Sélectionnez un motif.");const res=massResources(),days=daysInMonth(S.month).filter(d=>![0,6].includes(d.getDay()));res.forEach(r=>days.forEach(d=>{const ds=iso(d),key=cellKey(r.id,ds);S.selectedCells.add(key);S.changes.set(key,S.selectedMotif)}));renderMassCalendar()}
+function renderMassCalendar(){const res=massResources(),days=daysInMonth(S.month),today=iso(new Date());$("resourceCount").textContent=`${res.length} ressource${res.length>1?"s":""} affichée${res.length>1?"s":""}`;$("monthLabel").textContent=S.month.toLocaleDateString("fr-FR",{month:"long",year:"numeric"}).replace(/^./,c=>c.toUpperCase());$("massHead").innerHTML=`<tr><th class="sticky-name">Ressource</th><th class="sticky-team">Équipe</th>${days.map(d=>{const w=[0,6].includes(d.getDay()),ds=iso(d);return `<th class="day-head ${w?"weekend":""}">${d.toLocaleDateString("fr-FR",{weekday:"short"}).replace(".","")}<strong>${String(d.getDate()).padStart(2,"0")}</strong></th>`}).join("")}</tr>`;$("massBody").innerHTML=res.map(r=>`<tr><td class="sticky-name"><div class="resource-name"><span class="avatar">${initials(r.nom)}</span><span>${esc(r.nom)}</span></div></td><td class="sticky-team">${esc(teamRef(r.equipe)?.Libelle||teamRef(r.equipe)?.Code||"—")}</td>${days.map(d=>{const ds=iso(d),key=cellKey(r.id,ds),mid=displayMotifForCell(r.id,ds),m=motif(mid),weekend=[0,6].includes(d.getDay()),selected=S.selectedCells.has(key),changed=S.changes.has(key),locked=isDateLocked(ds),hidden=!!(m&&S.hiddenGridMotifs.has(m.id)),shown=m&&!hidden,colors=shown?motifSoftColor(m.Code):["#fff","#fff"];return `<td class="resource-cell ${weekend?"weekend":""} ${selected?"selected":""} ${shown?"has-value":""} ${hidden?"motif-hidden":""} ${locked?"period-locked":""}" title="${locked?"Période verrouillée":hidden?esc((m.Libelle||m.Code)+" — masqué"):""}"><button class="cell-toggle" data-r="${r.id}" data-d="${ds}" ${locked?"disabled":""}><span class="cell-box" style="${shown?`background:${colors[0]};color:${colors[1]};border:1px solid ${colors[1]}44`:""}">${shown?esc(m.Code):""}</span>${locked?'<span class="period-lock-mark">🔒</span>':""}${hidden?'<span class="hidden-motif-dot"></span>':""}${changed?'<span class="modified-dot"></span>':""}</button></td>`}).join("")}</tr>`).join("");$("massBody").querySelectorAll(".cell-toggle").forEach(b=>b.onclick=()=>toggleCell(Number(b.dataset.r),b.dataset.d));$("saveSummary").textContent=S.changes.size?`${S.changes.size} modification${S.changes.size>1?"s":""} en attente`:""}
+function toggleCell(resourceId,dateStr){if(isDateLocked(dateStr))return notify("Période verrouillée : déverrouillez-la avant modification.");const key=cellKey(resourceId,dateStr),old=presenceFor(resourceId,dateStr);if(!S.selectedMotif)return notify("Sélectionnez d'abord un motif.");S.selectedCells.add(key);S.changes.set(key,S.selectedMotif);renderMassCalendar()}
+function selectAllVisible(){if(!S.selectedMotif)return notify("Sélectionnez un motif.");const res=massResources(),days=daysInMonth(S.month).filter(d=>![0,6].includes(d.getDay())&&!isDateLocked(iso(d)));res.forEach(r=>days.forEach(d=>{const ds=iso(d),key=cellKey(r.id,ds);S.selectedCells.add(key);S.changes.set(key,S.selectedMotif)}));renderMassCalendar()}
 function clearSelection(){S.selectedCells.clear();S.changes.clear();renderMassCalendar()}
 function deleteSelection(){if(!S.selectedCells.size)return notify("Aucune case sélectionnée.");S.selectedCells.forEach(key=>S.changes.set(key,null));renderMassCalendar()}
-async function saveMass(){if(!S.changes.size)return notify("Aucune modification à enregistrer.");const table=grist.getTable(T.presence),creates=[],updates=[];for(const [key,mid] of S.changes.entries()){const [ridStr,ds]=key.split("|"),rid=Number(ridStr),old=presenceFor(rid,ds);if(mid===null){if(old)updates.push({id:old.id,fields:{Motif:0,Commentaire:"",Source:"Widget"}});continue}const fields={Ressource:rid,Date:epoch(ds),Motif:Number(mid),Statut:$("massStatus").value,Commentaire:$("massComment").value.trim(),Source:"Widget"};old?updates.push({id:old.id,fields}):creates.push({fields})}if(updates.length)await table.update(updates);if(creates.length)await table.create(creates);const total=creates.length+updates.length;S.changes.clear();S.selectedCells.clear();notify(`${total} modification${total>1?"s":""} enregistrée${total>1?"s":""}`);await load()}
+async function saveMass(){if(!S.changes.size)return notify("Aucune modification à enregistrer.");const lc=[...S.changes.keys()].filter(k=>isDateLocked(k.split("|")[1]));if(lc.length)throw new Error(`${lc.length} modification(s) concernent une période verrouillée.`);const table=grist.getTable(T.presence),creates=[],updates=[];for(const [key,mid] of S.changes.entries()){const [ridStr,ds]=key.split("|"),rid=Number(ridStr),old=presenceFor(rid,ds);if(mid===null){if(old)updates.push({id:old.id,fields:{Motif:0,Commentaire:"",Source:"Widget"}});continue}const fields={Ressource:rid,Date:epoch(ds),Motif:Number(mid),Statut:$("massStatus").value,Commentaire:$("massComment").value.trim(),Source:"Widget"};old?updates.push({id:old.id,fields}):creates.push({fields})}if(updates.length)await table.update(updates);if(creates.length)await table.create(creates);const total=creates.length+updates.length;S.changes.clear();S.selectedCells.clear();notify(`${total} modification${total>1?"s":""} enregistrée${total>1?"s":""}`);await load()}
 function renderLegend(){const el=$("massLegend");if(!el)return;el.innerHTML=S.motifs.filter(m=>m.Actif!==false).map(m=>{const [bg,fg]=motifSoftColor(m.Code);return `<div class="legend-item"><span class="legend-code" style="background:${bg};color:${fg}">${esc(m.Code)}</span><span>${esc(m.Libelle||"")}</span></div>`}).join("")}
 const CSV_HEADER=["Nom_Ressource","Email","Equipe_Code","Role","Capacite_ETP","Date","Motif","Statut","Commentaire"];
 const CSV_EXAMPLE=[CSV_HEADER.join(";"),"Alice Martin;alice@example.com;ACC;Dev;1;2026-09-01;TL;Prévisionnel;Télétravail","Nouveau Collab;new@example.com;ACC;QA;1;2026-09-02;FO;Confirmé;Formation"].join("\\n");
@@ -145,7 +188,7 @@ function csvParse(t){t=String(t??"").replace(/^\uFEFF/,"").replace(/\r\n/g,"\n")
 function csvResource(r){let em=(r.Email||"").toLowerCase(),nm=(r.Nom_Ressource||"").toLowerCase();return(em&&S.team.find(x=>(x.email||"").toLowerCase()===em))||S.team.find(x=>(x.nom||"").toLowerCase()===nm)}
 function csvTeam(v){v=(v||"").toLowerCase();return S.teams.find(x=>(x.Code||"").toLowerCase()===v||(x.Libelle||"").toLowerCase()===v)}
 function csvMotif(v){v=(v||"").toUpperCase();return S.motifs.find(x=>(x.Code||"").toUpperCase()===v)}
-function csvAnalyze(p){let miss=CSV_HEADER.filter(x=>!p.headers.includes(x));if(miss.length)throw Error("Colonnes manquantes : "+miss.join(", ")+" · Colonnes détectées : "+p.headers.join(" | "));let nr=new Map(),nt=new Map(),rows=[];for(let r of p.rows){let d=[],res=csvResource(r),tm=csvTeam(r.Equipe_Code),mo=csvMotif(r.Motif),bad=false,st=normalizeCsvStatus(r.Statut||"Prévisionnel"),nd=normalizeCsvDate(r.Date);if(!r.Nom_Ressource&&!r.Email){d.push("Ressource obligatoire");bad=true}if(!nd){d.push("Date invalide (JJ/MM/AAAA ou AAAA-MM-JJ)");bad=true}else r.Date=nd;if(!mo){d.push("Motif inconnu");bad=true}if(!["Prévisionnel","Confirmé","Réalisé"].includes(st)){d.push("Statut invalide");bad=true}let key=(r.Email||r.Nom_Ressource).toLowerCase(),teamKey=(r.Equipe_Code||"").trim().toLowerCase();if(r.Equipe_Code&&!tm&&!nt.has(teamKey))nt.set(teamKey,{key:teamKey,Code:r.Equipe_Code.trim(),Libelle:r.Equipe_Code.trim(),Description:"Créée automatiquement par import CSV"});if(!res&&!nr.has(key))nr.set(key,{...r,key,teamId:tm?.id||0,teamKey});if(r.Equipe_Code&&!tm)d.push("Équipe à créer automatiquement");let old=res&&nd?S.presence.find(x=>x.Ressource===res.id&&iso(x.Date)===nd):null;rows.push({...r,status:st,res,mo,key,teamKey,old,bad,diag:d.join(" · ")||"OK",action:res?(old?"Modifier":"Créer"):"Créer ressource + présence"})}return{rows,newResources:nr,newTeams:nt}}
+function csvAnalyze(p){let miss=CSV_HEADER.filter(x=>!p.headers.includes(x));if(miss.length)throw Error("Colonnes manquantes : "+miss.join(", ")+" · Colonnes détectées : "+p.headers.join(" | "));let nr=new Map(),nt=new Map(),rows=[];for(let r of p.rows){let d=[],res=csvResource(r),tm=csvTeam(r.Equipe_Code),mo=csvMotif(r.Motif),bad=false,st=normalizeCsvStatus(r.Statut||"Prévisionnel"),nd=normalizeCsvDate(r.Date);if(!r.Nom_Ressource&&!r.Email){d.push("Ressource obligatoire");bad=true}if(!nd){d.push("Date invalide (JJ/MM/AAAA ou AAAA-MM-JJ)");bad=true}else r.Date=nd;if(nd&&isDateLocked(nd)){d.push("Période verrouillée");bad=true;}if(!mo){d.push("Motif inconnu");bad=true}if(!["Prévisionnel","Confirmé","Réalisé"].includes(st)){d.push("Statut invalide");bad=true}let key=(r.Email||r.Nom_Ressource).toLowerCase(),teamKey=(r.Equipe_Code||"").trim().toLowerCase();if(r.Equipe_Code&&!tm&&!nt.has(teamKey))nt.set(teamKey,{key:teamKey,Code:r.Equipe_Code.trim(),Libelle:r.Equipe_Code.trim(),Description:"Créée automatiquement par import CSV"});if(!res&&!nr.has(key))nr.set(key,{...r,key,teamId:tm?.id||0,teamKey});if(r.Equipe_Code&&!tm)d.push("Équipe à créer automatiquement");let old=res&&nd?S.presence.find(x=>x.Ressource===res.id&&iso(x.Date)===nd):null;rows.push({...r,status:st,res,mo,key,teamKey,old,bad,diag:d.join(" · ")||"OK",action:res?(old?"Modifier":"Créer"):"Créer ressource + présence"})}return{rows,newResources:nr,newTeams:nt}}
 function csvRender(){let a=S.csvAnalysis;if(!a){$("csvPreview").innerHTML="";$("importCsv").disabled=true;return}let ok=a.rows.filter(x=>!x.bad),er=a.rows.filter(x=>x.bad);$("csvValid").textContent=ok.length;$("csvNewResources").textContent=a.newResources.size;$("csvCreates").textContent=ok.filter(x=>!x.old).length;$("csvUpdates").textContent=ok.filter(x=>x.old).length;$("csvErrors").textContent=er.length;$("importCsv").disabled=er.length>0||!ok.length;$("csvMessage").textContent=er.length?"Corrigez les erreurs avant import.":`Analyse OK : ${a.newTeams?.size||0} équipe(s) et ${a.newResources.size} ressource(s) seront créées si nécessaire.`;$("csvPreview").innerHTML=a.rows.slice(0,200).map(x=>`<tr><td>${x._line}</td><td>${esc(x.Nom_Ressource)}</td><td>${esc(x.Email)}</td><td>${esc(x.Equipe_Code)}</td><td>${esc(x.Date)}</td><td>${esc(x.Motif)}</td><td>${esc(x.status)}</td><td>${esc(x.action)}</td><td class="${x.bad?"diag-error":x.diag==="OK"?"diag-ok":"diag-warn"}">${esc(x.diag)}</td></tr>`).join("")}
 async function csvAnalyzeFile(){let f=$("csvFile").files?.[0];if(!f)throw Error("Sélectionnez un CSV");let p=csvParse(await readCsvFileText(f));S.csvAnalysis={...p,...csvAnalyze(p)};csvRender()}
 async function csvImport(){let a=S.csvAnalysis;if(!a||a.rows.some(x=>x.bad))throw Error("Analyse invalide");let teamRefTable=grist.getTable(T.teams),tt=grist.getTable(T.team),pt=grist.getTable(T.presence),createdTeams=new Map(),createdResources=new Map();for(let t of (a.newTeams?.values()||[])){let z=await teamRefTable.create({fields:{Code:t.Code,Libelle:t.Libelle,Description:t.Description||""}});if(typeof z==="number")createdTeams.set(t.key,z);else if(z?.id)createdTeams.set(t.key,z.id)}if(a.newTeams?.size){S.teams=gristRows(await grist.docApi.fetchTable(T.teams),"Team_ref");for(let t of a.newTeams.values())if(!createdTeams.has(t.key)){let found=csvTeam(t.Code);if(found)createdTeams.set(t.key,found.id)}}for(let r of a.newResources.values()){let teamId=Number(r.teamId||0);if(!teamId&&r.teamKey)teamId=Number(createdTeams.get(r.teamKey)||0);let z=await tt.create({fields:{nom:r.Nom_Ressource||r.Email,email:r.Email||"",role:r.Role||"",capacite_ETP:num(r.Capacite_ETP,1),actif:true,equipe:teamId}});if(typeof z==="number")createdResources.set(r.key,z);else if(z?.id)createdResources.set(r.key,z.id)}if(a.newResources.size){S.team=gristRows(await grist.docApi.fetchTable(T.team),"Team");for(let r of a.newResources.values())if(!createdResources.has(r.key)){let m=csvResource(r);if(m)createdResources.set(r.key,m.id)}}S.presence=gristRows(await grist.docApi.fetchTable(T.presence),"Presences");let cr=[],up=[];for(let r of a.rows){let rid=r.res?.id||createdResources.get(r.key);if(!rid)throw Error("Ressource introuvable ligne "+r._line);let old=S.presence.find(x=>x.Ressource===rid&&iso(x.Date)===r.Date),fields={Ressource:rid,Date:epoch(r.Date),Motif:r.mo.id,Statut:r.status,Commentaire:r.Commentaire||"",Source:"Import"};old?up.push({id:old.id,fields}):cr.push({fields})}if(up.length)await pt.update(up);if(cr.length)await pt.create(cr);$("csvMessage").textContent=`Import terminé : ${a.newTeams?.size||0} équipe(s), ${a.newResources.size} ressource(s), ${cr.length} création(s), ${up.length} mise(s) à jour.`;S.csvAnalysis=null;$("csvFile").value="";csvRender();await load();notify("Import CSV terminé")}
@@ -331,7 +374,7 @@ function pastForecastRows(){
   return S.presence.filter(r=>{
     const d=date(r.Date);
     d.setHours(0,0,0,0);
-    return d<today && r.Statut==="Prévisionnel";
+    return d<today && r.Statut==="Prévisionnel" && !isDateLocked(iso(r.Date));
   });
 }
 
@@ -446,6 +489,7 @@ async function resetUserTimesheet(){
   const pe=resource(rid);
   const rows=selectedResetRows();
   if(!rows.length)return notify("Aucune saisie à supprimer pour cette sélection.");
+  const lockedRows=rows.filter(r=>isDateLocked(iso(r.Date)));if(lockedRows.length)return notify(`${lockedRows.length} ligne(s) sont dans une période verrouillée.`);
 
   const name=pe?.nom||`Ressource ${rid}`;
   const scope=mode==="all"
@@ -515,4 +559,11 @@ if($("resetTimesheetMode"))$("resetTimesheetMode").onchange=()=>{updateResetMode
 if($("resetPeriodFrom"))$("resetPeriodFrom").onchange=updateResetTimesheetCount;
 if($("resetPeriodTo"))$("resetPeriodTo").onchange=updateResetTimesheetCount;
 if($("resetTimesheetBtn"))$("resetTimesheetBtn").onclick=()=>resetUserTimesheet().catch(e=>notify(e.message||e));
+if($("openPeriodLocks"))$("openPeriodLocks").onclick=openPeriodLocksModal;
+if($("closePeriodLocks"))$("closePeriodLocks").onclick=closePeriodLocksModal;
+if($("cancelPeriodLocks"))$("cancelPeriodLocks").onclick=closePeriodLocksModal;
+if($("createPeriodLock"))$("createPeriodLock").onclick=()=>createPeriodLock().catch(e=>notify(e.message||e));
+if($("periodLocksModal"))$("periodLocksModal").onclick=e=>{if(e.target===$("periodLocksModal"))closePeriodLocksModal();};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("periodLocksModal")?.hidden)closePeriodLocksModal();});
+grist.onOptions((options,interaction)=>{S.accessLevel=interaction?.access_level||interaction?.accessLevel||S.accessLevel;renderPeriodLocks();});
 grist.ready({requiredAccess:"full"});load().catch(e=>notify(e.message||e));

@@ -235,3 +235,20 @@ Un motif masqué est grisé et barré.
 - Le bloc `Motifs affichés dans la grille` est désormais une carte séparée.
 - La légende / aide `Motifs disponibles` redondante a été retirée de cette zone.
 - Les deux fonctions ont des rôles distincts : affecter un motif vs contrôler son affichage.
+
+
+## V6 — Verrouillage / déverrouillage des périodes
+Le Cockpit utilise une table optionnelle `Verrous_Periodes_RH`.
+
+Une période verrouillée :
+- est grisée avec un cadenas dans la grille ;
+- ne peut pas être modifiée manuellement ;
+- bloque les lignes d'import CSV/Excel correspondantes ;
+- bloque une réinitialisation de feuille de temps qui touche cette période ;
+- est exclue du passage automatique Prévisionnel -> Réalisé.
+
+Le déverrouillage est manuel et passe `Verrouille` à `false`, sans supprimer la ligne.
+
+Les contrôles de verrouillage/déverrouillage sont désactivés si le widget n'a pas l'accès `full`. Les droits Grist du document restent également applicables.
+
+Important : ceci protège les opérations du Cockpit. Pour bloquer aussi les modifications directes dans les tables Grist, il faut ajouter des règles ACL Grist.
