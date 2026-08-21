@@ -1,5 +1,5 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RH Capacité — Cockpit V3</title><link rel="stylesheet" href="styles.css"><script src="https://docs.getgrist.com/grist-plugin-api.js"></script></head><body>
-<div id="app"><aside class="sidebar"><div class="brand"><div class="mark">RH</div><div><strong>Capacité</strong><small>Cockpit RH</small></div></div><nav><button class="nav-item active" data-view="pilotage">Cockpit</button><button class="nav-item" data-view="previsionnel">Prévisionnel</button><button class="nav-item" data-view="saisie">Saisie des temps</button><button class="nav-item" data-view="imports">Imports</button><button class="nav-item" data-view="alertes">Alertes</button><button class="nav-item" data-view="rapports">Rapports</button></nav><div class="sidebar-sep"></div><div class="sidebar-label">Administration</div><div class="admin-hint">Le paramétrage reste dans le widget Administration séparé.</div><div class="sidebar-footer"><div class="sync" id="sync">Connexion…</div><div class="app-version" id="appVersion">Cockpit RH · V6.2</div></div></aside>
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RH Capacité — Cockpit V6.3</title><link rel="stylesheet" href="styles.css"><script src="https://docs.getgrist.com/grist-plugin-api.js"></script></head><body>
+<div id="app"><aside class="sidebar"><div class="brand"><div class="mark">RH</div><div><strong>Capacité</strong><small>Cockpit RH</small></div></div><nav><button class="nav-item active" data-view="pilotage">Cockpit</button><button class="nav-item" data-view="previsionnel">Prévisionnel</button><button class="nav-item" data-view="saisie">Saisie des temps</button><button class="nav-item" data-view="imports">Imports</button><button class="nav-item" data-view="alertes">Alertes</button><button class="nav-item" data-view="rapports">Rapports</button></nav><div class="sidebar-sep"></div><div class="sidebar-label">Administration</div><div class="admin-hint">Le paramétrage reste dans le widget Administration séparé.</div><div class="sidebar-footer"><div class="sync" id="sync">Connexion…</div><div class="app-version" id="appVersion">Cockpit RH · V6.3</div></div></aside>
 <main class="main"><header class="topbar"><div><h1 id="title">Pilotage</h1><p id="subtitle">Disponibilité et prévisionnel</p></div><button class="btn secondary" id="refresh">Actualiser</button></header>
 <section class="view active" id="pilotage"><div class="toolbar card"><label>Du<input id="from" type="date"></label><label>Au<input id="to" type="date"></label><label>Ressource<select id="person"><option value="">Toute l'équipe</option></select></label><div class="chips" id="chips"></div></div>
 <div class="kpis">
@@ -119,7 +119,7 @@
 </div>
 </section>
 <section class="view" id="alertes"><div class="card"><div class="section"><div><h2>Alertes calculées</h2><p>Prévisionnel + confirmé</p></div></div><div class="alerts" id="allAlerts"></div></div></section><section class="view" id="rapports"><div class="card"><div class="section"><div><h2>Rapports</h2><p>Dernières saisies enregistrées.</p></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Ressource</th><th>Motif</th><th>Statut</th><th>Commentaire</th></tr></thead><tbody id="recent"></tbody></table></div></div></section></main></div><div class="toast" id="toast"></div><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="app.js"></script><div class="modal-backdrop" id="periodLocksModal" hidden>
+<div class="modal-backdrop" id="periodLocksModal" hidden>
 <div class="modal-card lock-modal-card" role="dialog" aria-modal="true" aria-labelledby="periodLocksTitle">
   <div class="modal-head">
     <div><h2 id="periodLocksTitle">Périodes verrouillées</h2><p>Une période verrouillée doit être déverrouillée manuellement avant toute modification.</p></div>
@@ -155,4 +155,5 @@
 <div class="reset-modal-summary"><span id="resetTimesheetCount">0 ligne</span><small>Seules les lignes de <code>Presences</code> sont supprimées. La ressource <code>Team</code> reste intacte.</small></div>
 </div>
 <div class="modal-actions"><button class="btn secondary" id="cancelResetTimesheet">Annuler</button><button class="btn danger" id="resetTimesheetBtn" disabled>Réinitialiser</button></div>
-</div></div></body></html>
+</div></div><script src="app.js"></script>
+</body></html>

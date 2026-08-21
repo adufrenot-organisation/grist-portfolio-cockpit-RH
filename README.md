@@ -268,3 +268,14 @@ Important : ceci protège les opérations du Cockpit. Pour bloquer aussi les mod
 - L'état d'écriture est affiché dans la modale : vérification, écriture, succès ou erreur.
 - Après écriture, le widget recharge la table et vérifie que le verrou existe réellement.
 - La version `V6.2` est visible en bas du menu gauche, sous l'état de synchronisation.
+
+
+## V6.3 — Correctif bouton Verrouiller
+Cause identifiée : `app.js` était chargé avant le HTML des modales. Les boutons internes aux modales n'existaient donc pas encore lors de l'installation de leurs événements.
+
+Correction :
+- chargement de `app.js` déplacé après les modales ;
+- bouton `Verrouiller la période` correctement lié ;
+- boutons de fermeture/déverrouillage/reset sécurisés par le même ordre DOM ;
+- version visible passée à V6.3 ;
+- listener délégué de secours ajouté pour le verrouillage.

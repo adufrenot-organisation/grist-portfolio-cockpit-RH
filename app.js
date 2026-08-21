@@ -1,4 +1,4 @@
-const APP_VERSION="V6.2";
+const APP_VERSION="V6.3";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -646,6 +646,15 @@ if($("cancelPeriodLocks"))$("cancelPeriodLocks").onclick=closePeriodLocksModal;
 if($("createPeriodLock"))$("createPeriodLock").onclick=()=>createPeriodLock().catch(e=>notify(e.message||e));
 if($("periodLocksModal"))$("periodLocksModal").onclick=e=>{if(e.target===$("periodLocksModal"))closePeriodLocksModal();};
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("periodLocksModal")?.hidden)closePeriodLocksModal();});
+document.addEventListener("click",e=>{
+  const b=e.target.closest?.("#createPeriodLock");
+  if(!b||b.dataset.lockDelegated==="1")return;
+  // Normal onclick is installed when the modal exists. This fallback only covers a missing binding.
+  if(typeof b.onclick!=="function"){
+    e.preventDefault();
+    createPeriodLock().catch(err=>notify(err.message||err));
+  }
+});
 grist.onOptions((options,interaction)=>{S.accessLevel=interaction?.access_level||interaction?.accessLevel||S.accessLevel;renderPeriodLocks();});
 if($("appVersion"))$("appVersion").textContent=`Cockpit RH · ${APP_VERSION}`;
 grist.ready({requiredAccess:"full"});load().catch(e=>notify(e.message||e));
