@@ -279,3 +279,37 @@ Correction :
 - boutons de fermeture/déverrouillage/reset sécurisés par le même ordre DOM ;
 - version visible passée à V6.3 ;
 - listener délégué de secours ajouté pour le verrouillage.
+
+
+## V6.4 — Initialisation d'un calendrier
+Nouvelle action `📅 Initialiser un calendrier` dans le bloc Actions.
+- ressource au choix ;
+- année entière ou plage Du/Au ;
+- motif jours ouvrés, par défaut P ;
+- motif week-end, par défaut WE ;
+- statut au choix ;
+- aucune saisie existante n'est écrasée ;
+- les périodes verrouillées sont ignorées.
+Les jours fériés ne sont pas détectés automatiquement dans cette version.
+
+
+## V6.5 — Initialiser ou modifier en masse un calendrier
+La modale propose maintenant deux modes :
+
+### Initialiser les jours manquants uniquement
+- crée uniquement les dates absentes de `Presences` ;
+- ne modifie aucune saisie existante.
+
+### Modifier en masse le calendrier
+- crée les dates manquantes ;
+- met à jour les dates déjà renseignées avec les motifs choisis et le statut sélectionné ;
+- ignore toujours les périodes verrouillées.
+
+Option activée par défaut :
+`Préserver les jours déjà renseignés avec le motif F`.
+
+La prévisualisation distingue :
+- créations ;
+- mises à jour ;
+- jours verrouillés ignorés ;
+- jours existants conservés.

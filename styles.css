@@ -333,3 +333,9 @@ body.modal-open{overflow:hidden}
 .lock-write-status{margin-top:8px;min-height:18px;font-size:11px;color:var(--muted)}
 .lock-write-status.success{color:#16834a;font-weight:700}
 .lock-write-status.error{color:#b42318;font-weight:700}
+
+.init-calendar-modal{width:min(720px,100%)}.init-year-row{display:grid;grid-template-columns:180px}.init-year-row[hidden],.init-period-grid[hidden]{display:none}.init-period-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.init-motif-grid{display:grid;grid-template-columns:1fr 1fr 180px;gap:12px}.init-calendar-summary{display:flex;flex-wrap:wrap;gap:8px}.init-calendar-summary>*{padding:7px 10px;border-radius:9px;background:#f4f7f9;border:1px solid var(--border);font-size:11px}.init-calendar-summary strong{color:#0f807b}.init-calendar-note{font-size:11px;color:var(--muted);background:#f8fbfc;border:1px solid #e3eaee;border-radius:10px;padding:10px}@media(max-width:700px){.init-motif-grid,.init-period-grid{grid-template-columns:1fr}.init-year-row{grid-template-columns:1fr}}
+
+/* V6.5 — initialiser / modifier en masse */
+.init-preserve-holiday{padding-top:4px}
+.init-calendar-summary strong:nth-child(2){color:#2563eb}

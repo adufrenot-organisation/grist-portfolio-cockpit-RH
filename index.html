@@ -1,5 +1,5 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RH Capacité — Cockpit V6.3</title><link rel="stylesheet" href="styles.css"><script src="https://docs.getgrist.com/grist-plugin-api.js"></script></head><body>
-<div id="app"><aside class="sidebar"><div class="brand"><div class="mark">RH</div><div><strong>Capacité</strong><small>Cockpit RH</small></div></div><nav><button class="nav-item active" data-view="pilotage">Cockpit</button><button class="nav-item" data-view="previsionnel">Prévisionnel</button><button class="nav-item" data-view="saisie">Saisie des temps</button><button class="nav-item" data-view="imports">Imports</button><button class="nav-item" data-view="alertes">Alertes</button><button class="nav-item" data-view="rapports">Rapports</button></nav><div class="sidebar-sep"></div><div class="sidebar-label">Administration</div><div class="admin-hint">Le paramétrage reste dans le widget Administration séparé.</div><div class="sidebar-footer"><div class="sync" id="sync">Connexion…</div><div class="app-version" id="appVersion">Cockpit RH · V6.3</div></div></aside>
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RH Capacité — Cockpit V6.5</title><link rel="stylesheet" href="styles.css"><script src="https://docs.getgrist.com/grist-plugin-api.js"></script></head><body>
+<div id="app"><aside class="sidebar"><div class="brand"><div class="mark">RH</div><div><strong>Capacité</strong><small>Cockpit RH</small></div></div><nav><button class="nav-item active" data-view="pilotage">Cockpit</button><button class="nav-item" data-view="previsionnel">Prévisionnel</button><button class="nav-item" data-view="saisie">Saisie des temps</button><button class="nav-item" data-view="imports">Imports</button><button class="nav-item" data-view="alertes">Alertes</button><button class="nav-item" data-view="rapports">Rapports</button></nav><div class="sidebar-sep"></div><div class="sidebar-label">Administration</div><div class="admin-hint">Le paramétrage reste dans le widget Administration séparé.</div><div class="sidebar-footer"><div class="sync" id="sync">Connexion…</div><div class="app-version" id="appVersion">Cockpit RH · V6.5</div></div></aside>
 <main class="main"><header class="topbar"><div><h1 id="title">Pilotage</h1><p id="subtitle">Disponibilité et prévisionnel</p></div><button class="btn secondary" id="refresh">Actualiser</button></header>
 <section class="view active" id="pilotage"><div class="toolbar card"><label>Du<input id="from" type="date"></label><label>Au<input id="to" type="date"></label><label>Ressource<select id="person"><option value="">Toute l'équipe</option></select></label><div class="chips" id="chips"></div></div>
 <div class="kpis">
@@ -74,6 +74,7 @@
     <button class="btn danger wide-btn" id="deleteSelection">Effacer la sélection</button>
     <button class="btn secondary wide-btn" id="openResetTimesheet">Réinitialiser une feuille de temps</button>
     <button class="btn secondary wide-btn lock-action-btn" id="openPeriodLocks">🔒 Gérer les périodes verrouillées <span id="lockCountBadge"></span></button>
+    <button class="btn secondary wide-btn" id="openInitCalendar">📅 Initialiser / modifier un calendrier</button>
   </div>
 <div class="card mass-calendar-card">
     <div class="calendar-toolbar">
@@ -145,6 +146,34 @@
   <div class="modal-actions"><button class="btn secondary" id="cancelPeriodLocks" type="button">Fermer</button></div>
 </div>
 </div>
+<div class="modal-backdrop" id="initCalendarModal" hidden>
+<div class="modal-card init-calendar-modal" role="dialog" aria-modal="true" aria-labelledby="initCalendarTitle">
+<div class="modal-head"><div><h2 id="initCalendarTitle">Initialiser / modifier un calendrier</h2><p>Initialisez les jours manquants ou remplacez en masse les saisies existantes sur une période.</p></div><button class="modal-close" id="closeInitCalendar" type="button">×</button></div>
+<div class="modal-body">
+<label>Ressource<select id="initCalendarPerson"><option value="">Choisir une ressource…</option></select></label>
+<label>Mode de traitement
+  <select id="initCalendarAction">
+    <option value="initialize">Initialiser les jours manquants uniquement</option>
+    <option value="upsert">Modifier en masse le calendrier</option>
+  </select>
+</label>
+<label>Portée<select id="initCalendarMode"><option value="year">Toute une année</option><option value="period">Une période donnée</option></select></label>
+<div id="initCalendarYearWrap" class="init-year-row"><label>Année<input id="initCalendarYear" type="number" min="2000" max="2100"></label></div>
+<div id="initCalendarPeriodWrap" class="init-period-grid" hidden><label>Du<input id="initCalendarFrom" type="date"></label><label>Au<input id="initCalendarTo" type="date"></label></div>
+<div class="init-motif-grid">
+<label>Motif jours ouvrés<select id="initWeekdayMotif"></select></label>
+<label>Motif week-end<select id="initWeekendMotif"></select></label>
+<label>Statut<select id="initCalendarStatus"><option>Prévisionnel</option><option>Confirmé</option><option>Réalisé</option></select></label>
+</div>
+<label class="check compact init-preserve-holiday">
+  <input id="initPreserveHolidays" type="checkbox" checked>
+  Préserver les jours déjà renseignés avec le motif F (jour férié)
+</label>
+<div class="init-calendar-summary"><strong id="initCalendarCreates">0 création</strong><strong id="initCalendarUpdates">0 mise à jour</strong><span id="initCalendarLocked">0 jour verrouillé ignoré</span><span id="initCalendarExisting">0 jour existant conservé</span></div>
+<div class="init-calendar-note">En mode Initialiser, les saisies existantes sont conservées. En mode Modifier en masse, elles sont mises à jour et les jours manquants sont créés. Les périodes verrouillées ne sont jamais modifiées.</div>
+</div>
+<div class="modal-actions"><button class="btn secondary" id="cancelInitCalendar">Annuler</button><button class="btn" id="initCalendarBtn" disabled>Initialiser le calendrier</button></div>
+</div></div>
 <div class="modal-backdrop" id="resetTimesheetModal" hidden>
 <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="resetTimesheetTitle">
 <div class="modal-head"><div><h2 id="resetTimesheetTitle">Réinitialiser une feuille de temps</h2><p>Supprimer les saisies d'une ressource en totalité ou sur une période.</p></div><button class="modal-close" id="closeResetTimesheet" type="button">×</button></div>

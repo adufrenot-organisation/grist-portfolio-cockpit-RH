@@ -1,4 +1,4 @@
-const APP_VERSION="V6.3";
+const APP_VERSION="V6.5";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -609,6 +609,141 @@ async function resetUserTimesheet(){
 }
 
 
+function renderInitCalendarPeople(){const sel=$("initCalendarPerson");if(!sel)return;const current=sel.value;const people=(S.team||[]).filter(p=>p&&p.id).slice().sort((a,b)=>String(a.nom||"").localeCompare(String(b.nom||""),"fr"));sel.innerHTML='<option value="">Choisir une ressource…</option>'+people.map(p=>`<option value="${p.id}">${esc(p.nom||("Ressource "+p.id))}</option>`).join("");if([...sel.options].some(o=>o.value===current))sel.value=current}
+function renderInitCalendarMotifs(){const w=$("initWeekdayMotif"),we=$("initWeekendMotif");if(!w||!we)return;const motifs=S.motifs.filter(m=>m.Actif!==false),opts=motifs.map(m=>`<option value="${m.id}">${esc(m.Code)} — ${esc(m.Libelle||"")}</option>`).join("");w.innerHTML=opts;we.innerHTML=opts;const p=motifs.find(m=>m.Code==="P"),wem=motifs.find(m=>m.Code==="WE");if(p)w.value=String(p.id);if(wem)we.value=String(wem.id)}
+function updateInitCalendarMode(){const mode=$("initCalendarMode")?.value||"year";if($("initCalendarYearWrap"))$("initCalendarYearWrap").hidden=mode!=="year";if($("initCalendarPeriodWrap"))$("initCalendarPeriodWrap").hidden=mode!=="period";updateInitCalendarPreview()}
+function initCalendarDateRange(){const mode=$("initCalendarMode")?.value||"year";if(mode==="year"){const y=Number($("initCalendarYear")?.value||0);return y?{from:`${y}-01-01`,to:`${y}-12-31`}:null}const from=$("initCalendarFrom")?.value||"",to=$("initCalendarTo")?.value||"";return from&&to&&to>=from?{from,to}:null}
+function initCalendarPlan(){
+  const rid=Number($("initCalendarPerson")?.value||0);
+  const range=initCalendarDateRange();
+  const weekdayMotif=Number($("initWeekdayMotif")?.value||0);
+  const weekendMotif=Number($("initWeekendMotif")?.value||0);
+  const action=$("initCalendarAction")?.value||"initialize";
+  const preserveF=$("initPreserveHolidays")?.checked!==false;
+
+  if(!rid||!range||!weekdayMotif||!weekendMotif){
+    return {creates:[],updates:[],locked:0,existing:0,preservedHolidays:0};
+  }
+
+  const byDate=new Map(
+    S.presence
+      .filter(r=>r.Ressource===rid)
+      .map(r=>[iso(r.Date),r])
+  );
+
+  const creates=[],updates=[];
+  let locked=0,existing=0,preservedHolidays=0;
+
+  let d=new Date(range.from+"T12:00:00");
+  const finish=new Date(range.to+"T12:00:00");
+
+  while(d<=finish){
+    const ds=iso(d);
+    const old=byDate.get(ds);
+    const desiredMotif=[0,6].includes(d.getDay())?weekendMotif:weekdayMotif;
+
+    if(isDateLocked(ds)){
+      locked++;
+    }else if(old){
+      const oldMotif=motif(old.Motif);
+      if(preserveF&&oldMotif?.Code==="F"){
+        preservedHolidays++;
+      }else if(action==="upsert"){
+        updates.push({record:old,ds,motifId:desiredMotif});
+      }else{
+        existing++;
+      }
+    }else{
+      creates.push({ds,motifId:desiredMotif});
+    }
+
+    d.setDate(d.getDate()+1);
+  }
+
+  return {creates,updates,locked,existing,preservedHolidays};
+}
+function updateInitCalendarPreview(){
+  const p=initCalendarPlan();
+
+  if($("initCalendarCreates")){
+    $("initCalendarCreates").textContent=`${p.creates.length} création${p.creates.length>1?"s":""}`;
+  }
+  if($("initCalendarUpdates")){
+    $("initCalendarUpdates").textContent=`${p.updates.length} mise${p.updates.length>1?"s":""} à jour`;
+  }
+  if($("initCalendarLocked")){
+    $("initCalendarLocked").textContent=`${p.locked} jour${p.locked>1?"s":""} verrouillé${p.locked>1?"s":""} ignoré${p.locked>1?"s":""}`;
+  }
+  if($("initCalendarExisting")){
+    const kept=p.existing+p.preservedHolidays;
+    $("initCalendarExisting").textContent=`${kept} jour${kept>1?"s":""} existant${kept>1?"s":""} conservé${kept>1?"s":""}`;
+  }
+
+  const btn=$("initCalendarBtn");
+  if(btn)btn.disabled=(p.creates.length+p.updates.length)===0;
+}
+function openInitCalendarModal(){renderInitCalendarPeople();renderInitCalendarMotifs();const now=new Date();if($("initCalendarYear"))$("initCalendarYear").value=String(now.getFullYear());if($("initCalendarAction"))$("initCalendarAction").value="initialize";if($("initCalendarMode"))$("initCalendarMode").value="year";if($("initPreserveHolidays"))$("initPreserveHolidays").checked=true;if($("initCalendarStatus"))$("initCalendarStatus").value="Prévisionnel";updateInitCalendarMode();const m=$("initCalendarModal");if(m){m.hidden=false;m.style.display="flex";document.body.classList.add("modal-open")}}
+function closeInitCalendarModal(){const m=$("initCalendarModal");if(m){m.hidden=true;m.style.display="none";document.body.classList.remove("modal-open")}}
+async function initializeCalendar(){
+  const rid=Number($("initCalendarPerson")?.value||0);
+  if(!rid)return notify("Sélectionnez une ressource.");
+
+  const plan=initCalendarPlan();
+  const total=plan.creates.length+plan.updates.length;
+  if(!total)return notify("Aucune modification à effectuer.");
+
+  const pe=resource(rid);
+  const action=$("initCalendarAction")?.value||"initialize";
+  const status=$("initCalendarStatus")?.value||"Prévisionnel";
+  const modeLabel=action==="upsert"?"Modifier en masse":"Initialiser";
+
+  const message=
+    `${modeLabel} le calendrier de « ${pe?.nom||"la ressource"} » ?\n\n`+
+    `${plan.creates.length} création(s)\n`+
+    `${plan.updates.length} mise(s) à jour\n`+
+    `${plan.locked} date(s) verrouillée(s) ignorée(s)\n`+
+    `${plan.existing+plan.preservedHolidays} date(s) existante(s) conservée(s).`;
+
+  if(!window.confirm(message))return;
+
+  const btn=$("initCalendarBtn");
+  if(btn){btn.disabled=true;btn.textContent="Traitement…";}
+
+  try{
+    const table=grist.getTable(T.presence);
+
+    const creates=plan.creates.map(x=>({
+      fields:{
+        Ressource:rid,
+        Date:epoch(x.ds),
+        Motif:Number(x.motifId),
+        Statut:status,
+        Commentaire:"Initialisation / modification calendrier",
+        Source:"Widget"
+      }
+    }));
+
+    const updates=plan.updates.map(x=>({
+      id:x.record.id,
+      fields:{
+        Motif:Number(x.motifId),
+        Statut:status,
+        Commentaire:"Modification en masse calendrier",
+        Source:"Widget"
+      }
+    }));
+
+    if(updates.length)await table.update(updates);
+    if(creates.length)await table.create(creates);
+
+    notify(`${creates.length} création(s), ${updates.length} mise(s) à jour`);
+    await load();
+    closeInitCalendarModal();
+  }finally{
+    if(btn)btn.textContent="Initialiser / modifier le calendrier";
+  }
+}
+
 function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={
       pilotage:["Cockpit RH","Disponibilité, capacité et alertes prévisionnelles"],
       previsionnel:["Prévisionnel","Présences et absences futures ou confirmées"],
@@ -657,4 +792,19 @@ document.addEventListener("click",e=>{
 });
 grist.onOptions((options,interaction)=>{S.accessLevel=interaction?.access_level||interaction?.accessLevel||S.accessLevel;renderPeriodLocks();});
 if($("appVersion"))$("appVersion").textContent=`Cockpit RH · ${APP_VERSION}`;
+if($("openInitCalendar"))$("openInitCalendar").onclick=openInitCalendarModal;
+if($("closeInitCalendar"))$("closeInitCalendar").onclick=closeInitCalendarModal;
+if($("cancelInitCalendar"))$("cancelInitCalendar").onclick=closeInitCalendarModal;
+if($("initCalendarModal"))$("initCalendarModal").onclick=e=>{if(e.target===$("initCalendarModal"))closeInitCalendarModal();};
+if($("initCalendarPerson"))$("initCalendarPerson").onchange=updateInitCalendarPreview;
+if($("initCalendarMode"))$("initCalendarMode").onchange=updateInitCalendarMode;
+if($("initCalendarYear"))$("initCalendarYear").oninput=updateInitCalendarPreview;
+if($("initCalendarFrom"))$("initCalendarFrom").onchange=updateInitCalendarPreview;
+if($("initCalendarTo"))$("initCalendarTo").onchange=updateInitCalendarPreview;
+if($("initWeekdayMotif"))$("initWeekdayMotif").onchange=updateInitCalendarPreview;
+if($("initWeekendMotif"))$("initWeekendMotif").onchange=updateInitCalendarPreview;
+if($("initCalendarBtn"))$("initCalendarBtn").onclick=()=>initializeCalendar().catch(e=>notify(e.message||e));
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("initCalendarModal")?.hidden)closeInitCalendarModal();});
+if($("initCalendarAction"))$("initCalendarAction").onchange=updateInitCalendarPreview;
+if($("initPreserveHolidays"))$("initPreserveHolidays").onchange=updateInitCalendarPreview;
 grist.ready({requiredAccess:"full"});load().catch(e=>notify(e.message||e));
