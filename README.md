@@ -260,3 +260,11 @@ Important : ceci protège les opérations du Cockpit. Pour bloquer aussi les mod
 - le bouton affiche `Verrouillage…` pendant l'opération ;
 - un diagnostic visible indique succès ou erreur ;
 - après création, la ligne est relue depuis `Verrous_Periodes_RH` pour confirmer l'écriture.
+
+
+## V6.2 — Correctif verrouillage + version visible
+- Le bouton `Verrouiller la période` n'est plus rendu inactif à partir d'un état de table potentiellement obsolète.
+- Au clic, le widget revérifie `Verrous_Periodes_RH` directement dans Grist.
+- L'état d'écriture est affiché dans la modale : vérification, écriture, succès ou erreur.
+- Après écriture, le widget recharge la table et vérifie que le verrou existe réellement.
+- La version `V6.2` est visible en bas du menu gauche, sous l'état de synchronisation.

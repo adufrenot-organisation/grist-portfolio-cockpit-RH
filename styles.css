@@ -325,3 +325,11 @@ body.modal-open{overflow:hidden}
 .lock-write-status{margin-top:8px;min-height:16px;font-size:11px;color:var(--muted)}
 .lock-write-status.success{color:#16834a;font-weight:700}
 .lock-write-status.error{color:#c92a2a;font-weight:700}
+
+/* V6.2 — version visible + diagnostic verrouillage */
+.sidebar-footer{margin-top:auto;display:grid;gap:4px}
+.sidebar-footer .sync{margin-top:0}
+.app-version{padding:0 8px 6px;color:#6fcfc9;font-size:10px;font-weight:800;letter-spacing:.03em}
+.lock-write-status{margin-top:8px;min-height:18px;font-size:11px;color:var(--muted)}
+.lock-write-status.success{color:#16834a;font-weight:700}
+.lock-write-status.error{color:#b42318;font-weight:700}
