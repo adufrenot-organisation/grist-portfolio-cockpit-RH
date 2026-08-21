@@ -252,3 +252,11 @@ Le déverrouillage est manuel et passe `Verrouille` à `false`, sans supprimer l
 Les contrôles de verrouillage/déverrouillage sont désactivés si le widget n'a pas l'accès `full`. Les droits Grist du document restent également applicables.
 
 Important : ceci protège les opérations du Cockpit. Pour bloquer aussi les modifications directes dans les tables Grist, il faut ajouter des règles ACL Grist.
+
+
+## V6.1 — Correctif bouton Verrouiller
+- le bouton n'est plus désactivé sur la base d'une détection d'accès Grist incertaine ;
+- Grist reste l'autorité réelle : un utilisateur sans droit d'écriture verra l'écriture refusée par l'API ;
+- le bouton affiche `Verrouillage…` pendant l'opération ;
+- un diagnostic visible indique succès ou erreur ;
+- après création, la ligne est relue depuis `Verrous_Periodes_RH` pour confirmer l'écriture.

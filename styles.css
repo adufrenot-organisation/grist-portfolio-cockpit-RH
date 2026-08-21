@@ -320,3 +320,8 @@ body.modal-open{overflow:hidden}
 
 /* V6 — verrouillage des périodes */
 .lock-action-btn{white-space:nowrap}#lockCountBadge{font-size:10px;margin-left:4px}.lock-modal-card{width:min(760px,100%)}.lock-readonly-warning{border:1px solid #f5d08a;background:#fff9ec;color:#7b5700;border-radius:10px;padding:10px 12px;font-size:12px}.lock-create-panel,.lock-list-panel{border:1px solid var(--border);border-radius:12px;padding:13px}.lock-create-panel h3,.lock-list-panel h3{margin:0;font-size:14px}.lock-form{display:grid;grid-template-columns:1.4fr 150px 150px 1.5fr;gap:10px}.lock-create-actions{display:flex;justify-content:flex-end;margin-top:10px}.lock-list{display:grid;gap:8px}.lock-row{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;border:1px solid #e2e9ee;border-radius:10px;padding:9px 10px}.lock-icon{width:30px;height:30px;border-radius:9px;background:#fff2d5;display:grid;place-items:center}.lock-main{display:grid;gap:2px}.lock-main strong{font-size:12px}.lock-main span{font-size:11px;color:#526273}.lock-main small{font-size:10px;color:var(--muted)}.resource-cell.period-locked{background:#f4f6f8!important}.resource-cell.period-locked .cell-toggle{cursor:not-allowed;opacity:.72}.period-lock-mark{position:absolute;left:3px;top:3px;font-size:8px;line-height:1}@media(max-width:850px){.lock-form{grid-template-columns:1fr 1fr}}@media(max-width:600px){.lock-form{grid-template-columns:1fr}.lock-row{grid-template-columns:30px 1fr}.lock-row .unlock-period-btn{grid-column:1/-1}}
+
+/* V6.1 — diagnostic écriture des verrous */
+.lock-write-status{margin-top:8px;min-height:16px;font-size:11px;color:var(--muted)}
+.lock-write-status.success{color:#16834a;font-weight:700}
+.lock-write-status.error{color:#c92a2a;font-weight:700}

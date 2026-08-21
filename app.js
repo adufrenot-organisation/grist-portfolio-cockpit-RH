@@ -48,25 +48,56 @@ function renderPeriodLocks(){
   renderLockBadge();
   const list=$("periodLockList");if(!list)return;
   const ro=!canWriteCockpit();
-  if($("lockReadonlyWarning"))$("lockReadonlyWarning").hidden=!ro;
-  ["lockLabel","lockFrom","lockTo","lockComment","createPeriodLock"].forEach(id=>{if($(id))$(id).disabled=ro||!S.locksTableAvailable});
+  if($("lockReadonlyWarning"))$("lockReadonlyWarning").hidden=true;
+  ["lockLabel","lockFrom","lockTo","lockComment","createPeriodLock"].forEach(id=>{if($(id))$(id).disabled=!S.locksTableAvailable});
   if(!S.locksTableAvailable){list.innerHTML='<div class="empty">Table Verrous_Periodes_RH absente. Appliquez la migration V6.</div>';return}
   const rows=activeLocks().slice().sort((a,b)=>lockDateString(a.Date_Debut).localeCompare(lockDateString(b.Date_Debut)));
-  list.innerHTML=rows.length?rows.map(l=>{const a=lockDateString(l.Date_Debut),b=lockDateString(l.Date_Fin);return `<div class="lock-row" data-id="${l.id}"><div class="lock-icon">🔒</div><div class="lock-main"><strong>${esc(l.Libelle||"Période verrouillée")}</strong><span>${new Date(a+"T12:00:00").toLocaleDateString("fr-FR")} → ${new Date(b+"T12:00:00").toLocaleDateString("fr-FR")}</span>${l.Commentaire?`<small>${esc(l.Commentaire)}</small>`:""}</div><button class="btn secondary unlock-period-btn" type="button" ${ro?"disabled":""}>Déverrouiller</button></div>`}).join(""):'<div class="empty">Aucune période verrouillée.</div>';
-  list.querySelectorAll(".unlock-period-btn").forEach(btn=>btn.onclick=async()=>{if(!canWriteCockpit())return notify("Accès en lecture.");const id=Number(btn.closest(".lock-row").dataset.id),l=S.locks.find(x=>x.id===id);if(!l)return;if(!window.confirm(`Déverrouiller « ${l.Libelle||"cette période"} » ?`))return;await grist.getTable(T.locks).update({id,fields:{Verrouille:false}});await loadLocks();renderPeriodLocks();renderMassCalendar();notify("Période déverrouillée")});
+  list.innerHTML=rows.length?rows.map(l=>{const a=lockDateString(l.Date_Debut),b=lockDateString(l.Date_Fin);return `<div class="lock-row" data-id="${l.id}"><div class="lock-icon">🔒</div><div class="lock-main"><strong>${esc(l.Libelle||"Période verrouillée")}</strong><span>${new Date(a+"T12:00:00").toLocaleDateString("fr-FR")} → ${new Date(b+"T12:00:00").toLocaleDateString("fr-FR")}</span>${l.Commentaire?`<small>${esc(l.Commentaire)}</small>`:""}</div><button class="btn secondary unlock-period-btn" type="button" >Déverrouiller</button></div>`}).join(""):'<div class="empty">Aucune période verrouillée.</div>';
+  list.querySelectorAll(".unlock-period-btn").forEach(btn=>btn.onclick=async()=>{const id=Number(btn.closest(".lock-row").dataset.id),l=S.locks.find(x=>x.id===id);if(!l)return;if(!window.confirm(`Déverrouiller « ${l.Libelle||"cette période"} » ?`))return;await grist.getTable(T.locks).update({id,fields:{Verrouille:false}});await loadLocks();renderPeriodLocks();renderMassCalendar();notify("Période déverrouillée")});
 }
 function openPeriodLocksModal(){renderPeriodLocks();const m=$("periodLocksModal");if(m){m.hidden=false;m.style.display="flex";document.body.classList.add("modal-open")}}
 function closePeriodLocksModal(){const m=$("periodLocksModal");if(m){m.hidden=true;m.style.display="none";document.body.classList.remove("modal-open")}}
 async function createPeriodLock(){
-  if(!canWriteCockpit())return notify("Accès en lecture.");
   if(!S.locksTableAvailable)return notify("Table Verrous_Periodes_RH absente.");
-  const a=$("lockFrom").value,b=$("lockTo").value;if(!a||!b)return notify("Renseignez la période.");if(b<a)return notify("Période invalide.");
+  const a=$("lockFrom")?.value||"",b=$("lockTo")?.value||"";
+  if(!a||!b)return notify("Renseignez la période.");
+  if(b<a)return notify("Période invalide.");
+
   const overlaps=activeLocks().filter(l=>a<=lockDateString(l.Date_Fin)&&b>=lockDateString(l.Date_Debut));
   if(overlaps.length&&!window.confirm(`Chevauche ${overlaps.length} période(s) verrouillée(s). Continuer ?`))return;
-  await grist.getTable(T.locks).create({fields:{Libelle:$("lockLabel").value.trim()||`Verrou ${a} → ${b}`,Date_Debut:epoch(a),Date_Fin:epoch(b),Verrouille:true,Commentaire:$("lockComment").value.trim()}});
-  ["lockLabel","lockFrom","lockTo","lockComment"].forEach(id=>$(id).value="");
-  await loadLocks();renderPeriodLocks();renderMassCalendar();notify("Période verrouillée");
+
+  const btn=$("createPeriodLock");
+  const status=$("lockWriteStatus");
+  if(btn){btn.disabled=true;btn.textContent="Verrouillage…";}
+  if(status){status.textContent="Écriture dans Grist en cours…";status.className="lock-write-status";}
+
+  const fields={
+    Libelle:$("lockLabel")?.value.trim()||`Verrou ${a} → ${b}`,
+    Date_Debut:epoch(a),
+    Date_Fin:epoch(b),
+    Verrouille:true,
+    Commentaire:$("lockComment")?.value.trim()||""
+  };
+
+  try{
+    await grist.getTable(T.locks).create({fields});
+    await loadLocks();
+    const created=activeLocks().some(l=>lockDateString(l.Date_Debut)===a&&lockDateString(l.Date_Fin)===b);
+    if(!created)throw new Error("La ligne n'a pas été retrouvée après l'écriture.");
+    ["lockLabel","lockFrom","lockTo","lockComment"].forEach(id=>{if($(id))$(id).value=""});
+    renderPeriodLocks();renderMassCalendar();
+    if(status){status.textContent="Période verrouillée avec succès.";status.className="lock-write-status success";}
+    notify("Période verrouillée");
+  }catch(e){
+    console.error("Création verrou",e);
+    const msg=e?.message||String(e);
+    if(status){status.textContent=`Échec du verrouillage : ${msg}`;status.className="lock-write-status error";}
+    notify(msg);
+  }finally{
+    if(btn){btn.disabled=!S.locksTableAvailable;btn.textContent="Verrouiller la période";}
+  }
 }
+
 async function load(){
   $("sync").textContent="Synchronisation…";
   try {
