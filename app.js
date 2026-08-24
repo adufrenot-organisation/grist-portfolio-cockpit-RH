@@ -178,9 +178,69 @@ function activeTeam(){return S.team.filter(x=>x.actif!==false)}
 function render(){const opts=activeTeam().sort((a,b)=>String(a.nom).localeCompare(String(b.nom))).map(x=>`<option value="${x.id}">${esc(x.nom)}</option>`).join("");$("person").innerHTML='<option value="">Toute l’équipe</option>'+opts;chips();pilotage();renderRecent();alerts();renderForecast();renderPastForecastCount();renderMassFilters();renderMassMotifs();renderMotifInfo();renderMassCalendar();renderLockBadge()}
 function chips(){$("chips").innerHTML=S.motifs.filter(x=>x.Actif!==false&&!["F","WE"].includes(x.Code)).map(x=>`<button class="chip ${S.visible.has(x.id)?"on":"off"}" data-id="${x.id}">${esc(x.Code)}</button>`).join("");$("chips").querySelectorAll("button").forEach(b=>b.onclick=()=>{const id=Number(b.dataset.id);S.visible.has(id)?S.visible.delete(id):S.visible.add(id);chips();pilotage()})}
 function selected(){const a=new Date($("from").value+"T00:00:00"),b=new Date($("to").value+"T23:59:59"),pid=Number($("person").value||0);return S.presence.filter(x=>{const d=date(x.Date);return d>=a&&d<=b&&(!pid||x.Ressource===pid)&&S.visible.has(x.Motif)})}
-function pilotage(){const rr=selected();let work=0,p=0,a=0,tl=0,fo=0;const count={};rr.forEach(r=>{const m=motif(r.Motif);if(!m)return;const excluded=["WE","F"].includes(m.Code)||m.Compte_Capacite===false;if(!excluded){work++;p+=num(m.Presence_Equivalent);a+=num(m.Absence_Equivalent)}if(["TL","TE","TLE"].includes(m.Code))tl+=num(m.Presence_Equivalent,1);if(m.Code==="FO")fo+=num(m.Presence_Equivalent,1);count[m.id]=(count[m.id]||0)+1});$("presenceKpi").textContent=`${(work?p/work*100:0).toFixed(1)} %`;$("presenceSub").textContent=`${p.toFixed(1)} / ${work} jours-ressources travaillables`;$("absenceKpi").textContent=a.toFixed(1);$("remoteKpi").textContent=tl.toFixed(1);$("formationKpi").textContent=fo.toFixed(1);$("scope").textContent=$("person").value?(resource($("person").value)?.nom||"Ressource"):"Équipe";bars(count);chart(rr);S.alerts=compute();const pv=$("preview");if(pv)list(pv,S.alerts.slice(0,6));const ct=$("count");if(ct)ct.textContent=S.alerts.length}
+function capMinParam(){return S.params.find(p=>p.Code_Alerte==="CAP_MIN"&&p.Actif!==false)}
+function capThreshold(){const p=capMinParam();return p?num(p.Seuil_Orange,70):70}
+function capacityStats(rr){
+  let work=0,presence=0,absence=0,remote=0,formation=0,physical=0;const count={};
+  rr.forEach(r=>{const m=motif(r.Motif);if(!m)return;const excluded=["WE","F"].includes(m.Code)||m.Compte_Capacite===false;
+    if(!excluded){work++;presence+=num(m.Presence_Equivalent);absence+=num(m.Absence_Equivalent)}
+    if(["TL","TE","TLE"].includes(m.Code))remote+=num(m.Presence_Equivalent,1);
+    if(m.Code==="FO")formation+=num(m.Presence_Equivalent,1);
+    if(m.Code==="P")physical+=num(m.Presence_Equivalent,1);
+    count[m.id]=(count[m.id]||0)+1;
+  });
+  return{work,presence,absence,remote,formation,physical,count,capacity:work?presence/work*100:0}
+}
+function resourcesBelowThreshold(rr,threshold){
+  const by={};rr.forEach(r=>{const m=motif(r.Motif);if(!m||["WE","F"].includes(m.Code)||m.Compte_Capacite===false)return;(by[r.Ressource]??={w:0,p:0}).w++;by[r.Ressource].p+=num(m.Presence_Equivalent)});
+  return Object.entries(by).map(([rid,v])=>({rid:Number(rid),rate:v.w?v.p/v.w*100:0})).filter(x=>x.rate<=threshold);
+}
+function pilotage(){
+  const rr=selected(),st=capacityStats(rr),threshold=capThreshold(),below=resourcesBelowThreshold(rr,threshold);
+  $("presenceKpi").textContent=`${st.capacity.toFixed(1)} %`;
+  $("presenceSub").textContent=`${st.presence.toFixed(1)} / ${st.work} jours-ressources travaillables`;
+  $("absenceKpi").textContent=st.absence.toFixed(1);$("remoteKpi").textContent=st.remote.toFixed(1);$("formationKpi").textContent=st.formation.toFixed(1);
+  $("capacityKpi").textContent=`${st.capacity.toFixed(1)} %`;$("capacitySub").textContent=`seuil ${threshold.toFixed(0)} %`;
+  $("physicalKpi").textContent=`${(st.work?st.physical/st.work*100:0).toFixed(1)} %`;$("physicalSub").textContent=`${st.physical.toFixed(1)} jours sur site`;
+  $("remoteRateKpi").textContent=`${(st.work?st.remote/st.work*100:0).toFixed(1)} %`;$("remoteRateSub").textContent=`${st.remote.toFixed(1)} jours`;
+  $("belowThresholdKpi").textContent=String(below.length);$("belowThresholdSub").textContent=`seuil ≤ ${threshold.toFixed(0)} %`;
+  $("scope").textContent=$("person").value?(resource($("person").value)?.nom||"Ressource"):"Équipe";
+  bars(st.count);activityMix(st);chart(rr,threshold);forecastRealChart(rr);renderAttention(rr,below,threshold);
+  S.alerts=compute();const pv=$("preview");if(pv)list(pv,S.alerts.slice(0,6));const ct=$("count");if(ct)ct.textContent=S.alerts.length
+}
 function bars(c){const e=Object.entries(c).sort((a,b)=>b[1]-a[1]),mx=Math.max(1,...e.map(x=>x[1]));$("bars").innerHTML=e.length?e.map(([id,v])=>{const m=motif(id);return `<div class="bar"><span>${esc(m?.Libelle||id)}</span><div class="track"><div class="fill" style="width:${v/mx*100}%;background:${esc(m?.Couleur||"#2563eb")}"></div></div><strong>${v}</strong></div>`}).join(""):'<div class="empty">Aucune donnée</div>'}
-function chart(rr){const by={};rr.forEach(r=>{const m=motif(r.Motif);if(!m||m.Compte_Capacite===false)return;const k=iso(r.Date);by[k]??={w:0,p:0};by[k].w++;by[k].p+=num(m.Presence_Equivalent)});const ds=Object.keys(by).sort(),svg=$("chart");if(!ds.length){svg.innerHTML='<text x="30" y="60" class="axis">Aucune donnée</text>';return}const vs=ds.map(k=>by[k].p/by[k].w*100),W=900,H=300,L=48,R=16,TT=18,B=40,iw=W-L-R,ih=H-TT-B,x=i=>L+(ds.length===1?iw/2:i/(ds.length-1)*iw),y=v=>TT+(100-v)/100*ih;let h="";[0,25,50,75,100].forEach(v=>h+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" class="gridline"/><text x="8" y="${y(v)+4}" class="axis">${v}%</text>`);h+=`<polyline points="${vs.map((v,i)=>`${x(i)},${y(v)}`).join(" ")}" class="line"/>`;svg.innerHTML=h}
+function activityMix(st){
+  const el=$("activityMix");if(!el)return;const vals=[["Présentiel",st.physical,"mix-p"],["Télétravail",st.remote,"mix-tl"],["Absence",st.absence,"mix-a"],["Formation",st.formation,"mix-fo"]],total=vals.reduce((s,x)=>s+x[1],0);
+  if(!total){el.innerHTML='<div class="empty">Aucune donnée</div>';return}
+  el.innerHTML=`<div class="mix-bar">${vals.map(x=>`<span class="${x[2]}" style="width:${x[1]/total*100}%"></span>`).join("")}</div><div class="mix-legend">${vals.map(x=>`<div><i class="${x[2]}"></i><span>${x[0]}</span><strong>${(x[1]/total*100).toFixed(1)} %</strong></div>`).join("")}</div>`
+}
+function chart(rr,threshold=70){
+  const by={};rr.forEach(r=>{const m=motif(r.Motif);if(!m||m.Compte_Capacite===false||["WE","F"].includes(m.Code))return;const k=iso(r.Date);by[k]??={w:0,p:0};by[k].w++;by[k].p+=num(m.Presence_Equivalent)});
+  const ds=Object.keys(by).sort(),svg=$("chart");if(!ds.length){svg.innerHTML='<text x="30" y="60" class="axis">Aucune donnée</text>';return}
+  const vs=ds.map(k=>by[k].p/by[k].w*100),W=900,H=300,L=48,R=16,TT=18,B=40,iw=W-L-R,ih=H-TT-B,x=i=>L+(ds.length===1?iw/2:i/(ds.length-1)*iw),y=v=>TT+(100-v)/100*ih;let h="";
+  [0,25,50,75,100].forEach(v=>h+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" class="gridline"/><text x="8" y="${y(v)+4}" class="axis">${v}%</text>`);
+  h+=`<line x1="${L}" x2="${W-R}" y1="${y(threshold)}" y2="${y(threshold)}" class="threshold-line"/><text x="${W-R-74}" y="${y(threshold)-6}" class="threshold-label">${threshold.toFixed(0)}%</text>`;
+  h+=`<polyline points="${vs.map((v,i)=>`${x(i)},${y(v)}`).join(" ")}" class="line"/>`;svg.innerHTML=h
+}
+function weekKey(d){const x=new Date(d);x.setHours(0,0,0,0);const day=(x.getDay()+6)%7;x.setDate(x.getDate()-day);return iso(x)}
+function forecastRealChart(rr){
+  const by={};rr.forEach(r=>{const m=motif(r.Motif);if(!m||m.Compte_Capacite===false||["WE","F"].includes(m.Code))return;const k=weekKey(date(r.Date)),kind=r.Statut==="Réalisé"?"real":["Prévisionnel","Confirmé"].includes(r.Statut)?"forecast":null;if(!kind)return;by[k]??={forecast:{w:0,p:0},real:{w:0,p:0}};by[k][kind].w++;by[k][kind].p+=num(m.Presence_Equivalent)});
+  const ds=Object.keys(by).sort(),svg=$("forecastRealChart");if(!ds.length){svg.innerHTML='<text x="30" y="60" class="axis">Aucune donnée</text>';return}
+  const W=900,H=300,L=48,R=16,T=18,B=42,iw=W-L-R,ih=H-T-B,x=i=>L+(ds.length===1?iw/2:i/(ds.length-1)*iw),y=v=>T+(100-v)/100*ih;
+  const val=(k,t)=>by[k][t].w?by[k][t].p/by[k][t].w*100:null;let h="";
+  [0,25,50,75,100].forEach(v=>h+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" class="gridline"/><text x="8" y="${y(v)+4}" class="axis">${v}%</text>`);
+  const segments=t=>{let seg=[],all=[];ds.forEach((k,i)=>{const v=val(k,t);if(v===null){if(seg.length)all.push(seg);seg=[]}else seg.push(`${x(i)},${y(v)}`)});if(seg.length)all.push(seg);return all};
+  segments("forecast").forEach(s=>h+=`<polyline points="${s.join(" ")}" class="line forecast-line"/>`);segments("real").forEach(s=>h+=`<polyline points="${s.join(" ")}" class="line realized-line"/>`);
+  ds.forEach((k,i)=>{if(i===0||i===ds.length-1||i%Math.max(1,Math.ceil(ds.length/5))===0)h+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" class="axis">${new Date(k+"T00:00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"})}</text>`});
+  svg.innerHTML=h
+}
+function renderAttention(rr,below,threshold){
+  const items=[];below.slice(0,5).forEach(x=>items.push({level:"warn",title:`${resource(x.rid)?.nom||"Ressource"} sous le seuil de capacité`,detail:`${x.rate.toFixed(1)} % · seuil ${threshold.toFixed(0)} %`}));
+  const st=capacityStats(rr);if(st.work&&st.physical/st.work*100<30)items.push({level:"info",title:"Présence physique faible",detail:`${(st.physical/st.work*100).toFixed(1)} % sur la période`});
+  const alertsNow=compute().slice(0,4);alertsNow.forEach(a=>items.push({level:a.s==="red"?"danger":"warn",title:a.l,detail:`${a.dt?a.dt+" · ":""}${Number(a.v).toFixed(1)} ${a.u||""}`}));
+  const unique=[];const seen=new Set();items.forEach(x=>{const k=x.title+"|"+x.detail;if(!seen.has(k)){seen.add(k);unique.push(x)}});
+  $("attentionCount").textContent=String(unique.length);$("attentionList").innerHTML=unique.length?unique.slice(0,8).map(x=>`<div class="attention-item ${x.level}"><span></span><div><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></div></div>`).join(""):'<div class="attention-ok">Aucun point d’attention sur la sélection.</div>'
+}
 function severity(p,v){const o=num(p.Seuil_Orange),r=num(p.Seuil_Rouge);if(p.Sens==="MIN"){if(v<=r)return"red";if(v<=o)return"orange"}else{if(v>=r)return"red";if(v>=o)return"orange"}return null}
 function forecast(a,b){return S.presence.filter(r=>{const d=date(r.Date);return d>=a&&d<=b&&["Prévisionnel","Confirmé"].includes(r.Statut)})}
 function compute(){const now=new Date();now.setHours(0,0,0,0);const out=[],team=activeTeam(),add=(p,l,v,dt="")=>{const s=severity(p,v);if(s)out.push({s,l,v,u:p.Unite||"",dt})};S.params.filter(p=>p.Actif!==false).forEach(p=>{const days=Math.max(1,num(p.Fenetre_Jours,1)),end=new Date(now);end.setDate(end.getDate()+days-1);const rr=forecast(now,end);

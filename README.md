@@ -327,3 +327,7 @@ Les noms techniques Grist, notamment la table `Presences`, ne sont pas modifiés
 
 ## V6.7 — Alertes retirées du Cockpit
 Le bloc Alertes a été supprimé de la page Cockpit RH. Les alertes restent disponibles dans l'onglet Alertes. Le moteur de calcul et les seuils ne sont pas modifiés.
+
+
+## V6.8 — Pilotage enrichi
+Ajout capacité/seuil CAP_MIN, présence physique, taux de télétravail, ressources sous seuil, répartition d'activité, prévisionnel vs réalisé hebdomadaire et points d'attention.
