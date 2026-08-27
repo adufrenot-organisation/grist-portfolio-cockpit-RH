@@ -1,4 +1,4 @@
-const APP_VERSION="V6.11";
+const APP_VERSION="V6.12";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -820,6 +820,31 @@ async function initializeCalendar(){
   }
 }
 
+
+function setSidebarCollapsed(collapsed){
+  document.body.classList.toggle("sidebar-collapsed",collapsed);
+  const btn=$("sidebarToggle");
+  if(btn){
+    btn.setAttribute("aria-expanded",String(!collapsed));
+    btn.setAttribute("aria-label",collapsed?"Déplier le menu":"Réduire le menu");
+    btn.title=collapsed?"Déplier le menu":"Réduire le menu";
+    const icon=btn.querySelector(".sidebar-toggle-icon");
+    if(icon)icon.textContent=collapsed?"›":"‹";
+  }
+  try{localStorage.setItem("rh-sidebar-collapsed",collapsed?"1":"0")}catch(_){}
+}
+function initSidebar(){
+  // Réduit par défaut. Si l'utilisateur l'a déjà changé, on respecte son choix local.
+  let collapsed=true;
+  try{
+    const saved=localStorage.getItem("rh-sidebar-collapsed");
+    if(saved==="0")collapsed=false;
+    if(saved==="1")collapsed=true;
+  }catch(_){}
+  setSidebarCollapsed(collapsed);
+  const btn=$("sidebarToggle");
+  if(btn)btn.onclick=()=>setSidebarCollapsed(!document.body.classList.contains("sidebar-collapsed"));
+}
 function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={
       pilotage:["Cockpit RH","Disponibilité, capacité et alertes prévisionnelles"],
       previsionnel:["Prévisionnel","Présences et absences futures ou confirmées"],
@@ -830,7 +855,7 @@ function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{
     };
     $("title").textContent=t[b.dataset.view][0];
     $("subtitle").textContent=t[b.dataset.view][1];if(b.dataset.view==="saisie")renderMassCalendar()})}
-defaults();nav();["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
+defaults();initSidebar();nav();["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
 $("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=previousHalfMonth;$("nextMonth").onclick=nextHalfMonth;$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
 $("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});
 $("resetCsv").onclick=resetCsvImport;csvSetup();

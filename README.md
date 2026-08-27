@@ -358,3 +358,12 @@ Le rafraîchissement a été simplifié :
 ## V6.11 — Version visible
 Le numéro de version est maintenant affiché explicitement en bas du menu gauche, sous l'état de synchronisation :
 `Cockpit RH · V6.11`.
+
+
+## V6.12 — Menu gauche réductible
+- Le menu gauche est réduit par défaut.
+- Un bouton rond permet de l'ouvrir / le refermer à tout moment.
+- L'état est mémorisé localement dans le navigateur.
+- En mode réduit, le menu occupe environ 72 px et libère davantage d'espace pour la feuille de présence et les graphiques.
+- Les entrées principales restent accessibles sous forme d'icônes compactes avec infobulle au survol.
+- La version reste disponible lorsque le menu est déplié.
