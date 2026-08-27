@@ -367,3 +367,12 @@ Le numéro de version est maintenant affiché explicitement en bas du menu gauch
 - En mode réduit, le menu occupe environ 72 px et libère davantage d'espace pour la feuille de présence et les graphiques.
 - Les entrées principales restent accessibles sous forme d'icônes compactes avec infobulle au survol.
 - La version reste disponible lorsque le menu est déplié.
+
+
+## V6.13 — Menu compact réel + quinzaine sans scroll
+- Le `#app` passe réellement de 210 px à 72 px quand le menu est replié : la zone centrale récupère donc toute la largeur libérée.
+- Les anciennes pseudo-icônes du menu réduit ont été remplacées par de vraies icônes avec infobulles propres.
+- Les libellés du menu ne se superposent plus en mode réduit.
+- La feuille de présence utilise `table-layout: fixed` et 100 % de la largeur disponible.
+- Les colonnes Ressource/Équipe sont compactées et les 15 jours se répartissent automatiquement sur l'espace restant.
+- À partir d'une largeur tablette étroite seulement, le scroll horizontal redevient disponible comme solution de secours.

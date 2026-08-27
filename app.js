@@ -1,4 +1,4 @@
-const APP_VERSION="V6.12";
+const APP_VERSION="V6.13";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
