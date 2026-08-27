@@ -1,4 +1,4 @@
-const APP_VERSION="V6.7";
+const APP_VERSION="V6.11";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -883,4 +883,5 @@ if($("initCalendarBtn"))$("initCalendarBtn").onclick=()=>initializeCalendar().ca
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("initCalendarModal")?.hidden)closeInitCalendarModal();});
 if($("initCalendarAction"))$("initCalendarAction").onchange=updateInitCalendarPreview;
 if($("initPreserveHolidays"))$("initPreserveHolidays").onchange=updateInitCalendarPreview;
+if($("cockpitVersion"))$("cockpitVersion").textContent=`Cockpit RH · ${APP_VERSION}`;
 grist.ready({requiredAccess:"full"});load().catch(e=>notify(e.message||e));

@@ -390,3 +390,20 @@ body.modal-open{overflow:hidden}
   .month-nav{justify-content:space-between}
   .month-label{min-width:0}
 }
+
+/* V6.11 — version visible */
+.sidebar-status{
+  margin-top:auto;
+  padding-top:10px;
+  display:grid;
+  gap:4px;
+}
+.sidebar-status .sync{margin-top:0}
+.cockpit-version{
+  padding:0 4px 4px;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.03em;
+  color:#6fcfc9;
+  opacity:.95;
+}

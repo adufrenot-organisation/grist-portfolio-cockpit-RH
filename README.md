@@ -353,3 +353,8 @@ Le rafraîchissement a été simplifié :
 - `load()` déclenche le rendu global ;
 - suppression des appels redondants à d'anciennes fonctions de rendu ;
 - conservation des rendus complémentaires de la feuille de présence.
+
+
+## V6.11 — Version visible
+Le numéro de version est maintenant affiché explicitement en bas du menu gauche, sous l'état de synchronisation :
+`Cockpit RH · V6.11`.
