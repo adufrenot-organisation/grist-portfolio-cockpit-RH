@@ -331,3 +331,25 @@ Le bloc Alertes a été supprimé de la page Cockpit RH. Les alertes restent dis
 
 ## V6.8 — Pilotage enrichi
 Ajout capacité/seuil CAP_MIN, présence physique, taux de télétravail, ressources sous seuil, répartition d'activité, prévisionnel vs réalisé hebdomadaire et points d'attention.
+
+
+## V6.9 — Feuille de présence en fenêtres de 15 jours
+- Le bloc Actions devient responsive : les boutons se répartissent automatiquement sur plusieurs colonnes et ne débordent plus à 100 % de zoom.
+- `Réinitialiser une feuille de présence` peut revenir à la ligne si nécessaire.
+- La grille n'affiche plus tout le mois simultanément.
+- Fenêtre 1 : jours 01 à 15.
+- Fenêtre 2 : jours 16 à la fin du mois.
+- Les flèches précédent/suivant naviguent entre les deux fenêtres, puis changent de mois.
+- `Tout sélectionner` agit uniquement sur les jours visibles de la fenêtre courante.
+- Le titre indique explicitement la plage, par exemple `Août 2026 · 01–15`.
+
+
+## V6.10 — Correctif Actualiser
+Le bouton `Actualiser` appelait encore `renderAlerts()`, une ancienne fonction qui n'existe plus dans le module.
+Le rendu actuel utilise `alerts()` via le `render()` principal.
+
+Le rafraîchissement a été simplifié :
+- recharge des données Grist via `load()` ;
+- `load()` déclenche le rendu global ;
+- suppression des appels redondants à d'anciennes fonctions de rendu ;
+- conservation des rendus complémentaires de la feuille de présence.

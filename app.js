@@ -19,7 +19,7 @@ function gristRows(data, tableName="") {
   }
   return rows;
 }
-const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full"};
+const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",halfMonth:(new Date().getDate()<=15?1:2)};
 const $=id=>document.getElementById(id),num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d,esc=(s="")=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const date=v=>typeof v==="number"?new Date(v*1000):Array.isArray(v)&&v[0]==="D"?new Date(v[1]*1000):new Date(v);
 const iso=v=>{const d=date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
@@ -259,6 +259,26 @@ function renderMassFilters(){const el=$("massTeam");if(!el)return;const current=
 function renderMassMotifs(){const el=$("massMotifs");if(!el)return;const usable=S.motifs.filter(m=>m.Actif!==false);if(!S.selectedMotif&&usable.length)S.selectedMotif=usable.find(m=>m.Code==="A")?.id||usable[0].id;el.innerHTML=usable.map(m=>{const [bg,fg]=motifSoftColor(m.Code);return `<button class="motif-btn ${S.selectedMotif===m.id?"active":""}" data-id="${m.id}" style="background:${bg};color:${fg}">${esc(m.Code)}<small>${esc(m.Libelle||"")}</small></button>`}).join("");el.querySelectorAll(".motif-btn").forEach(b=>b.onclick=()=>{S.selectedMotif=Number(b.dataset.id);renderMassMotifs()})}
 function massResources(){const team=Number($("massTeam").value||0),activeOnly=$("massActiveOnly").checked;return S.team.filter(r=>(!team||r.equipe===team)&&(!activeOnly||r.actif!==false)).sort((a,b)=>String(a.nom).localeCompare(String(b.nom)))}
 function daysInMonth(d){const y=d.getFullYear(),m=d.getMonth(),n=new Date(y,m+1,0).getDate();return Array.from({length:n},(_,i)=>new Date(y,m,i+1))}
+function daysInCurrentHalf(d){
+  const all=daysInMonth(d);
+  return S.halfMonth===1?all.slice(0,15):all.slice(15);
+}
+function halfMonthLabel(d){
+  const all=daysInMonth(d),days=daysInCurrentHalf(d);
+  const month=d.toLocaleDateString("fr-FR",{month:"long",year:"numeric"}).replace(/^./,c=>c.toUpperCase());
+  if(!days.length)return month;
+  return `${month} · ${String(days[0].getDate()).padStart(2,"0")}–${String(days[days.length-1].getDate()).padStart(2,"0")}`;
+}
+function previousHalfMonth(){
+  if(S.halfMonth===2){S.halfMonth=1}
+  else{S.month=new Date(S.month.getFullYear(),S.month.getMonth()-1,1);S.halfMonth=2}
+  clearSelection();
+}
+function nextHalfMonth(){
+  if(S.halfMonth===1){S.halfMonth=2}
+  else{S.month=new Date(S.month.getFullYear(),S.month.getMonth()+1,1);S.halfMonth=1}
+  clearSelection();
+}
 function presenceFor(resourceId,dateStr){return S.presence.find(r=>r.Ressource===resourceId&&iso(r.Date)===dateStr)}
 function cellKey(resourceId,dateStr){return `${resourceId}|${dateStr}`}
 function displayMotifForCell(resourceId,dateStr){const key=cellKey(resourceId,dateStr);if(S.changes.has(key))return S.changes.get(key);const old=presenceFor(resourceId,dateStr);return old?old.Motif:null}
@@ -285,9 +305,9 @@ function renderMotifVisibility(){
 }
 function showAllGridMotifs(){S.hiddenGridMotifs.clear();renderMotifVisibility();renderMassCalendar()}
 function hideAllGridMotifs(){S.motifs.filter(m=>m.Actif!==false).forEach(m=>S.hiddenGridMotifs.add(m.id));renderMotifVisibility();renderMassCalendar()}
-function renderMassCalendar(){const res=massResources(),days=daysInMonth(S.month),today=iso(new Date());$("resourceCount").textContent=`${res.length} ressource${res.length>1?"s":""} affichée${res.length>1?"s":""}`;$("monthLabel").textContent=S.month.toLocaleDateString("fr-FR",{month:"long",year:"numeric"}).replace(/^./,c=>c.toUpperCase());$("massHead").innerHTML=`<tr><th class="sticky-name">Ressource</th><th class="sticky-team">Équipe</th>${days.map(d=>{const w=[0,6].includes(d.getDay()),ds=iso(d);return `<th class="day-head ${w?"weekend":""}">${d.toLocaleDateString("fr-FR",{weekday:"short"}).replace(".","")}<strong>${String(d.getDate()).padStart(2,"0")}</strong></th>`}).join("")}</tr>`;$("massBody").innerHTML=res.map(r=>`<tr><td class="sticky-name"><div class="resource-name"><span class="avatar">${initials(r.nom)}</span><span>${esc(r.nom)}</span></div></td><td class="sticky-team">${esc(teamRef(r.equipe)?.Libelle||teamRef(r.equipe)?.Code||"—")}</td>${days.map(d=>{const ds=iso(d),key=cellKey(r.id,ds),mid=displayMotifForCell(r.id,ds),m=motif(mid),weekend=[0,6].includes(d.getDay()),selected=S.selectedCells.has(key),changed=S.changes.has(key),locked=isDateLocked(ds),hidden=!!(m&&S.hiddenGridMotifs.has(m.id)),shown=m&&!hidden,colors=shown?motifSoftColor(m.Code):["#fff","#fff"];return `<td class="resource-cell ${weekend?"weekend":""} ${selected?"selected":""} ${shown?"has-value":""} ${hidden?"motif-hidden":""} ${locked?"period-locked":""}" title="${locked?"Période verrouillée":hidden?esc((m.Libelle||m.Code)+" — masqué"):""}"><button class="cell-toggle" data-r="${r.id}" data-d="${ds}" ${locked?"disabled":""}><span class="cell-box" style="${shown?`background:${colors[0]};color:${colors[1]};border:1px solid ${colors[1]}44`:""}">${shown?esc(m.Code):""}</span>${locked?'<span class="period-lock-mark">🔒</span>':""}${hidden?'<span class="hidden-motif-dot"></span>':""}${changed?'<span class="modified-dot"></span>':""}</button></td>`}).join("")}</tr>`).join("");$("massBody").querySelectorAll(".cell-toggle").forEach(b=>b.onclick=()=>toggleCell(Number(b.dataset.r),b.dataset.d));$("saveSummary").textContent=S.changes.size?`${S.changes.size} modification${S.changes.size>1?"s":""} en attente`:""}
+function renderMassCalendar(){const res=massResources(),days=daysInCurrentHalf(S.month),today=iso(new Date());$("resourceCount").textContent=`${res.length} ressource${res.length>1?"s":""} affichée${res.length>1?"s":""}`;$("monthLabel").textContent=halfMonthLabel(S.month);$("massHead").innerHTML=`<tr><th class="sticky-name">Ressource</th><th class="sticky-team">Équipe</th>${days.map(d=>{const w=[0,6].includes(d.getDay()),ds=iso(d);return `<th class="day-head ${w?"weekend":""}">${d.toLocaleDateString("fr-FR",{weekday:"short"}).replace(".","")}<strong>${String(d.getDate()).padStart(2,"0")}</strong></th>`}).join("")}</tr>`;$("massBody").innerHTML=res.map(r=>`<tr><td class="sticky-name"><div class="resource-name"><span class="avatar">${initials(r.nom)}</span><span>${esc(r.nom)}</span></div></td><td class="sticky-team">${esc(teamRef(r.equipe)?.Libelle||teamRef(r.equipe)?.Code||"—")}</td>${days.map(d=>{const ds=iso(d),key=cellKey(r.id,ds),mid=displayMotifForCell(r.id,ds),m=motif(mid),weekend=[0,6].includes(d.getDay()),selected=S.selectedCells.has(key),changed=S.changes.has(key),locked=isDateLocked(ds),hidden=!!(m&&S.hiddenGridMotifs.has(m.id)),shown=m&&!hidden,colors=shown?motifSoftColor(m.Code):["#fff","#fff"];return `<td class="resource-cell ${weekend?"weekend":""} ${selected?"selected":""} ${shown?"has-value":""} ${hidden?"motif-hidden":""} ${locked?"period-locked":""}" title="${locked?"Période verrouillée":hidden?esc((m.Libelle||m.Code)+" — masqué"):""}"><button class="cell-toggle" data-r="${r.id}" data-d="${ds}" ${locked?"disabled":""}><span class="cell-box" style="${shown?`background:${colors[0]};color:${colors[1]};border:1px solid ${colors[1]}44`:""}">${shown?esc(m.Code):""}</span>${locked?'<span class="period-lock-mark">🔒</span>':""}${hidden?'<span class="hidden-motif-dot"></span>':""}${changed?'<span class="modified-dot"></span>':""}</button></td>`}).join("")}</tr>`).join("");$("massBody").querySelectorAll(".cell-toggle").forEach(b=>b.onclick=()=>toggleCell(Number(b.dataset.r),b.dataset.d));$("saveSummary").textContent=S.changes.size?`${S.changes.size} modification${S.changes.size>1?"s":""} en attente`:""}
 function toggleCell(resourceId,dateStr){if(isDateLocked(dateStr))return notify("Période verrouillée : déverrouillez-la avant modification.");const key=cellKey(resourceId,dateStr),old=presenceFor(resourceId,dateStr);if(!S.selectedMotif)return notify("Sélectionnez d'abord un motif.");S.selectedCells.add(key);S.changes.set(key,S.selectedMotif);renderMassCalendar()}
-function selectAllVisible(){if(!S.selectedMotif)return notify("Sélectionnez un motif.");const res=massResources(),days=daysInMonth(S.month).filter(d=>![0,6].includes(d.getDay())&&!isDateLocked(iso(d)));res.forEach(r=>days.forEach(d=>{const ds=iso(d),key=cellKey(r.id,ds);S.selectedCells.add(key);S.changes.set(key,S.selectedMotif)}));renderMassCalendar()}
+function selectAllVisible(){if(!S.selectedMotif)return notify("Sélectionnez un motif.");const res=massResources(),days=daysInCurrentHalf(S.month).filter(d=>![0,6].includes(d.getDay())&&!isDateLocked(iso(d)));res.forEach(r=>days.forEach(d=>{const ds=iso(d),key=cellKey(r.id,ds);S.selectedCells.add(key);S.changes.set(key,S.selectedMotif)}));renderMassCalendar()}
 function clearSelection(){S.selectedCells.clear();S.changes.clear();renderMassCalendar()}
 function deleteSelection(){if(!S.selectedCells.size)return notify("Aucune case sélectionnée.");S.selectedCells.forEach(key=>S.changes.set(key,null));renderMassCalendar()}
 async function saveMass(){if(!S.changes.size)return notify("Aucune modification à enregistrer.");const lc=[...S.changes.keys()].filter(k=>isDateLocked(k.split("|")[1]));if(lc.length)throw new Error(`${lc.length} modification(s) concernent une période verrouillée.`);const table=grist.getTable(T.presence),creates=[],updates=[];for(const [key,mid] of S.changes.entries()){const [ridStr,ds]=key.split("|"),rid=Number(ridStr),old=presenceFor(rid,ds);if(mid===null){if(old)updates.push({id:old.id,fields:{Motif:0,Commentaire:"",Source:"Widget"}});continue}const fields={Ressource:rid,Date:epoch(ds),Motif:Number(mid),Statut:$("massStatus").value,Commentaire:$("massComment").value.trim(),Source:"Widget"};old?updates.push({id:old.id,fields}):creates.push({fields})}if(updates.length)await table.update(updates);if(creates.length)await table.create(creates);const total=creates.length+updates.length;S.changes.clear();S.selectedCells.clear();notify(`${total} modification${total>1?"s":""} enregistrée${total>1?"s":""}`);await load()}
@@ -460,26 +480,22 @@ async function refreshCockpit(){
     btn.dataset.originalText=btn.textContent;
     btn.textContent="Actualisation…";
   }
+
   try{
-    // Drop local transient states that may mask fresh Grist data.
+    // Nettoyage uniquement des états transitoires locaux.
     S.changes.clear();
     S.selectedCells.clear();
     S.csvAnalysis=null;
 
+    // load() recharge Grist puis appelle déjà render().
+    // On évite donc d'appeler ici d'anciennes fonctions de rendu supprimées/renommées.
     await load();
 
-    // Force-refresh all views that depend on Grist data.
-    pilotage();
-    renderForecast();
-    renderPastForecastCount();
-    renderRecent();
-    renderAlerts();
-    renderMassFilters();
-    renderMassMotifs();
-    renderMotifVisibility();
-    renderMassCalendar();
+    // Rendus complémentaires qui ne font pas partie du render() principal.
+    if(typeof renderMotifVisibility==="function")renderMotifVisibility();
+    if(typeof renderResetTimesheet==="function")renderResetTimesheet();
+    if(typeof renderPeriodLocks==="function")renderLockBadge();
 
-    renderResetTimesheet();
     notify("Données actualisées");
   }finally{
     if(btn){
@@ -815,7 +831,7 @@ function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{
     $("title").textContent=t[b.dataset.view][0];
     $("subtitle").textContent=t[b.dataset.view][1];if(b.dataset.view==="saisie")renderMassCalendar()})}
 defaults();nav();["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
-$("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()-1,1);clearSelection()};$("nextMonth").onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()+1,1);clearSelection()};$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
+$("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=previousHalfMonth;$("nextMonth").onclick=nextHalfMonth;$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
 $("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});
 $("resetCsv").onclick=resetCsvImport;csvSetup();
 $("excelFile").onchange=()=>loadExcelWorkbook().catch(e=>{$("excelInfo").textContent=e.message;notify(e.message)});

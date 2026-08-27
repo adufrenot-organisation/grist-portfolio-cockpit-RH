@@ -351,3 +351,42 @@ body.modal-open{overflow:hidden}
 .info-dot{border:0;background:transparent;padding:0;color:#0891b2;font-size:12px;vertical-align:middle;cursor:help;position:relative}.info-dot:hover:after{content:attr(data-tip);position:absolute;z-index:30;left:50%;top:22px;transform:translateX(-50%);width:260px;padding:9px 10px;background:#17202a;color:#fff;border-radius:8px;font-size:10px;font-weight:500;line-height:1.4;box-shadow:0 8px 22px rgba(0,0,0,.2)}
 @media(max-width:1050px){.dashboard-grid{grid-template-columns:1fr}.kpis-secondary{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.kpis-secondary{grid-template-columns:1fr}.mix-legend{grid-template-columns:1fr}}
+
+/* V6.9 — feuille de présence responsive + fenêtres de 15 jours */
+.action-card{
+  display:grid!important;
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr))!important;
+  gap:10px!important;
+  align-items:stretch!important;
+}
+.action-card .section{grid-column:1/-1!important}
+.action-card .wide-btn{
+  width:100%!important;
+  min-width:0!important;
+  white-space:normal!important;
+  line-height:1.25!important;
+  min-height:48px;
+  padding:9px 12px!important;
+  overflow-wrap:anywhere;
+}
+.calendar-toolbar{grid-template-columns:auto minmax(180px,1fr) auto}
+.month-label{min-width:210px}
+.calendar-scroll{overflow-x:auto}
+.mass-table .sticky-name{min-width:175px}
+.mass-table .sticky-team{left:175px;min-width:135px}
+.day-head{width:44px;min-width:44px}
+.resource-cell{min-width:44px}
+@media(max-width:1200px){
+  .action-card{grid-template-columns:repeat(3,minmax(190px,1fr))!important}
+}
+@media(max-width:900px){
+  .action-card{grid-template-columns:repeat(2,minmax(180px,1fr))!important}
+  .calendar-toolbar{grid-template-columns:1fr auto}
+  .calendar-tip{grid-column:1/-1;grid-row:2;text-align:left}
+}
+@media(max-width:620px){
+  .action-card{grid-template-columns:1fr!important}
+  .calendar-toolbar{grid-template-columns:1fr}
+  .month-nav{justify-content:space-between}
+  .month-label{min-width:0}
+}
