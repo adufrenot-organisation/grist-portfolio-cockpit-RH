@@ -1,4 +1,4 @@
-const APP_VERSION="V6.13";
+const APP_VERSION="V6.14";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -845,7 +845,15 @@ function initSidebar(){
   const btn=$("sidebarToggle");
   if(btn)btn.onclick=()=>setSidebarCollapsed(!document.body.classList.contains("sidebar-collapsed"));
 }
-function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={
+
+function presenceContext(){
+  const active=document.querySelector(".nav-item.active");
+  const view=active?.dataset?.view||"pilotage";
+  const labels={pilotage:"Cockpit",previsionnel:"Prévisionnel",saisie:"Feuille de présence",imports:"Imports",alertes:"Alertes",rapports:"Rapports"};
+  return {module:"Cockpit RH",context:labels[view]||"Cockpit RH",contextId:""};
+}
+
+function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");window.PmoPresence?.touch?.();document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={
       pilotage:["Cockpit RH","Disponibilité, capacité et alertes prévisionnelles"],
       previsionnel:["Prévisionnel","Présences et absences futures ou confirmées"],
       saisie:["Feuille de présence","Saisie rapide des présences et absences pour plusieurs ressources"],
@@ -909,4 +917,4 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("initCalendarMod
 if($("initCalendarAction"))$("initCalendarAction").onchange=updateInitCalendarPreview;
 if($("initPreserveHolidays"))$("initPreserveHolidays").onchange=updateInitCalendarPreview;
 if($("cockpitVersion"))$("cockpitVersion").textContent=`Cockpit RH · ${APP_VERSION}`;
-grist.ready({requiredAccess:"full"});load().catch(e=>notify(e.message||e));
+grist.ready({requiredAccess:"full"});window.PmoPresence?.start({widget:"COCKPIT_RH",version:APP_VERSION,getContext:presenceContext});load().catch(e=>notify(e.message||e));

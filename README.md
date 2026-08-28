@@ -376,3 +376,7 @@ Le numéro de version est maintenant affiché explicitement en bas du menu gauch
 - La feuille de présence utilise `table-layout: fixed` et 100 % de la largeur disponible.
 - Les colonnes Ressource/Équipe sont compactées et les 15 jours se répartissent automatiquement sur l'espace restant.
 - À partir d'une largeur tablette étroite seulement, le scroll horizontal redevient disponible comme solution de secours.
+
+
+## V6.14 — Présence v2
+Intégration du heartbeat partagé `SESSIONS_UTILISATEURS` avec module `Cockpit RH` et contexte selon l'écran actif.
