@@ -723,3 +723,16 @@ body.sidebar-collapsed .sidebar-footer{display:none!important}
   .mass-table{min-width:820px!important}
   .action-card{grid-template-columns:1fr!important}
 }
+
+/* V6.15 — statuts KPI et seuils explicites */
+.kpi-status{
+  display:inline-flex;align-items:center;width:max-content;max-width:100%;
+  margin:2px 0 5px;padding:4px 8px;border-radius:999px;
+  font-size:10px;line-height:1;font-weight:800;border:1px solid transparent
+}
+.kpi-status.green{background:#edf9f0;color:#18713a;border-color:#cdebd5}
+.kpi-status.orange{background:#fff7e8;color:#9a6200;border-color:#f5ddb0}
+.kpi-status.red{background:#fff0f0;color:#b42318;border-color:#f2c7c4}
+.kpi-status.info{background:#eef6ff;color:#245b91;border-color:#cfe3f5}
+.kpi-status.neutral{background:#f3f5f7;color:#667584;border-color:#e2e7eb}
+.metric.compact small{line-height:1.35}

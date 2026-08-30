@@ -380,3 +380,16 @@ Le numéro de version est maintenant affiché explicitement en bas du menu gauch
 
 ## V6.14 — Présence v2
 Intégration du heartbeat partagé `SESSIONS_UTILISATEURS` avec module `Cockpit RH` et contexte selon l'écran actif.
+
+
+## V6.15 — reprise depuis la dernière version utilisateur
+Cette version repart du ZIP fourni comme nouvelle base de référence.
+
+Modifications ajoutées :
+- statut visuel 🟢 / 🟠 / 🔴 sur Capacité disponible ;
+- seuils Orange/Rouge affichés directement sous la valeur ;
+- Présence physique évaluée en % avec référence recommandée 50 % / 35 % ;
+- compatibilité avec l'ancien PRES_PHY exprimé en personnes ;
+- taux de télétravail marqué comme indicateur informatif ;
+- ressources sous seuil avec statut `Aucun` / `À examiner` ;
+- alertes PRES_PHY calculées en pourcentage de l'effectif actif.

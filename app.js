@@ -1,4 +1,4 @@
-const APP_VERSION="V6.14";
+const APP_VERSION="V6.15";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -178,8 +178,20 @@ function activeTeam(){return S.team.filter(x=>x.actif!==false)}
 function render(){const opts=activeTeam().sort((a,b)=>String(a.nom).localeCompare(String(b.nom))).map(x=>`<option value="${x.id}">${esc(x.nom)}</option>`).join("");$("person").innerHTML='<option value="">Toute l’équipe</option>'+opts;chips();pilotage();renderRecent();alerts();renderForecast();renderPastForecastCount();renderMassFilters();renderMassMotifs();renderMotifInfo();renderMassCalendar();renderLockBadge()}
 function chips(){$("chips").innerHTML=S.motifs.filter(x=>x.Actif!==false&&!["F","WE"].includes(x.Code)).map(x=>`<button class="chip ${S.visible.has(x.id)?"on":"off"}" data-id="${x.id}">${esc(x.Code)}</button>`).join("");$("chips").querySelectorAll("button").forEach(b=>b.onclick=()=>{const id=Number(b.dataset.id);S.visible.has(id)?S.visible.delete(id):S.visible.add(id);chips();pilotage()})}
 function selected(){const a=new Date($("from").value+"T00:00:00"),b=new Date($("to").value+"T23:59:59"),pid=Number($("person").value||0);return S.presence.filter(x=>{const d=date(x.Date);return d>=a&&d<=b&&(!pid||x.Ressource===pid)&&S.visible.has(x.Motif)})}
-function capMinParam(){return S.params.find(p=>p.Code_Alerte==="CAP_MIN"&&p.Actif!==false)}
+function paramByCode(code){return S.params.find(p=>p.Code_Alerte===code&&p.Actif!==false)}
+function capMinParam(){return paramByCode("CAP_MIN")}
 function capThreshold(){const p=capMinParam();return p?num(p.Seuil_Orange,70):70}
+function physicalParam(){
+  const p=paramByCode("PRES_PHY");
+  // Compatibilité avec l'ancien paramétrage en nombre de personnes.
+  // Tant que l'unité n'est pas passée en %, on applique les valeurs recommandées.
+  if(!p)return {Code_Alerte:"PRES_PHY",Libelle:"Présence physique minimale",Sens:"MIN",Seuil_Orange:50,Seuil_Rouge:35,Unite:"%",Actif:true,Fenetre_Jours:1};
+  if(String(p.Unite||"").trim()!=="%")return {...p,Sens:"MIN",Seuil_Orange:50,Seuil_Rouge:35,Unite:"%"};
+  return p;
+}
+function kpiSeverity(p,v){return p?(severity(p,v)||"green"):"neutral"}
+function setKpiStatus(id,status,text){const el=$(id);if(!el)return;el.className=`kpi-status ${status}`;el.textContent=text}
+function statusLabel(s){return s==="red"?"🔴 Critique":s==="orange"?"🟠 Vigilance":s==="green"?"🟢 Normal":"—"}
 function capacityStats(rr){
   let work=0,presence=0,absence=0,remote=0,formation=0,physical=0;const count={};
   rr.forEach(r=>{const m=motif(r.Motif);if(!m)return;const excluded=["WE","F"].includes(m.Code)||m.Compte_Capacite===false;
@@ -196,14 +208,36 @@ function resourcesBelowThreshold(rr,threshold){
   return Object.entries(by).map(([rid,v])=>({rid:Number(rid),rate:v.w?v.p/v.w*100:0})).filter(x=>x.rate<=threshold);
 }
 function pilotage(){
-  const rr=selected(),st=capacityStats(rr),threshold=capThreshold(),below=resourcesBelowThreshold(rr,threshold);
+  const rr=selected(),st=capacityStats(rr),capP=capMinParam(),threshold=capThreshold(),below=resourcesBelowThreshold(rr,threshold);
+  const physicalRate=st.work?st.physical/st.work*100:0,remoteRate=st.work?st.remote/st.work*100:0;
+  const physP=physicalParam();
+
   $("presenceKpi").textContent=`${st.capacity.toFixed(1)} %`;
   $("presenceSub").textContent=`${st.presence.toFixed(1)} / ${st.work} jours-ressources travaillables`;
-  $("absenceKpi").textContent=st.absence.toFixed(1);$("remoteKpi").textContent=st.remote.toFixed(1);$("formationKpi").textContent=st.formation.toFixed(1);
-  $("capacityKpi").textContent=`${st.capacity.toFixed(1)} %`;$("capacitySub").textContent=`seuil ${threshold.toFixed(0)} %`;
-  $("physicalKpi").textContent=`${(st.work?st.physical/st.work*100:0).toFixed(1)} %`;$("physicalSub").textContent=`${st.physical.toFixed(1)} jours sur site`;
-  $("remoteRateKpi").textContent=`${(st.work?st.remote/st.work*100:0).toFixed(1)} %`;$("remoteRateSub").textContent=`${st.remote.toFixed(1)} jours`;
-  $("belowThresholdKpi").textContent=String(below.length);$("belowThresholdSub").textContent=`seuil ≤ ${threshold.toFixed(0)} %`;
+  $("absenceKpi").textContent=st.absence.toFixed(1);
+  $("remoteKpi").textContent=st.remote.toFixed(1);
+  $("formationKpi").textContent=st.formation.toFixed(1);
+
+  $("capacityKpi").textContent=`${st.capacity.toFixed(1)} %`;
+  const capOrange=capP?num(capP.Seuil_Orange,70):70,capRed=capP?num(capP.Seuil_Rouge,50):50;
+  const capRule=capP||{Sens:"MIN",Seuil_Orange:capOrange,Seuil_Rouge:capRed};
+  const capS=kpiSeverity(capRule,st.capacity);
+  setKpiStatus("capacityStatus",capS,statusLabel(capS));
+  $("capacitySub").textContent=`Orange ≤ ${capOrange.toFixed(0)} % · Rouge ≤ ${capRed.toFixed(0)} %`;
+
+  $("physicalKpi").textContent=`${physicalRate.toFixed(1)} %`;
+  const physS=kpiSeverity(physP,physicalRate);
+  setKpiStatus("physicalStatus",physS,statusLabel(physS));
+  $("physicalSub").textContent=`${st.physical.toFixed(1)} j site · Orange ≤ ${num(physP.Seuil_Orange,50).toFixed(0)} % · Rouge ≤ ${num(physP.Seuil_Rouge,35).toFixed(0)} %`;
+
+  $("remoteRateKpi").textContent=`${remoteRate.toFixed(1)} %`;
+  setKpiStatus("remoteRateStatus","info","ℹ️ Informatif");
+  $("remoteRateSub").textContent=`${st.remote.toFixed(1)} jours · TL simultané surveillé séparément`;
+
+  $("belowThresholdKpi").textContent=String(below.length);
+  setKpiStatus("belowThresholdStatus",below.length?"orange":"green",below.length?"🟠 À examiner":"🟢 Aucun");
+  $("belowThresholdSub").textContent=`capacité individuelle ≤ ${threshold.toFixed(0)} %`;
+
   $("scope").textContent=$("person").value?(resource($("person").value)?.nom||"Ressource"):"Équipe";
   bars(st.count);activityMix(st);chart(rr,threshold);forecastRealChart(rr);renderAttention(rr,below,threshold);
   S.alerts=compute();const pv=$("preview");if(pv)list(pv,S.alerts.slice(0,6));const ct=$("count");if(ct)ct.textContent=S.alerts.length
@@ -243,11 +277,39 @@ function renderAttention(rr,below,threshold){
 }
 function severity(p,v){const o=num(p.Seuil_Orange),r=num(p.Seuil_Rouge);if(p.Sens==="MIN"){if(v<=r)return"red";if(v<=o)return"orange"}else{if(v>=r)return"red";if(v>=o)return"orange"}return null}
 function forecast(a,b){return S.presence.filter(r=>{const d=date(r.Date);return d>=a&&d<=b&&["Prévisionnel","Confirmé"].includes(r.Statut)})}
-function compute(){const now=new Date();now.setHours(0,0,0,0);const out=[],team=activeTeam(),add=(p,l,v,dt="")=>{const s=severity(p,v);if(s)out.push({s,l,v,u:p.Unite||"",dt})};S.params.filter(p=>p.Actif!==false).forEach(p=>{const days=Math.max(1,num(p.Fenetre_Jours,1)),end=new Date(now);end.setDate(end.getDate()+days-1);const rr=forecast(now,end);
-if(p.Code_Alerte==="ABS_IND")team.forEach(pe=>{let v=0;rr.filter(r=>r.Ressource===pe.id).forEach(r=>v+=num(motif(r.Motif)?.Absence_Equivalent));add(p,`${pe.nom} · absences prévues`,v)});
-if(p.Code_Alerte==="ABS_EQ"){let abs=0,w=0;rr.forEach(r=>{const m=motif(r.Motif);if(m&&m.Compte_Capacite!==false){w++;abs+=num(m.Absence_Equivalent)}});add(p,"Équipe · taux d’absence prévu",w?abs/w*100:0)}
-if(["CAP_MIN","PRES_PHY","TL_SIM","FO_SIM"].includes(p.Code_Alerte)){const by={};rr.forEach(r=>(by[iso(r.Date)]??=[]).push(r));Object.entries(by).forEach(([d,day])=>{let v=0;if(p.Code_Alerte==="CAP_MIN"){let pr=0,w=0;day.forEach(r=>{const m=motif(r.Motif);if(m&&m.Compte_Capacite!==false){w++;pr+=num(m.Presence_Equivalent)}});v=w?pr/w*100:100}if(p.Code_Alerte==="PRES_PHY")v=day.filter(r=>motif(r.Motif)?.Code==="P").length;if(p.Code_Alerte==="TL_SIM")v=day.filter(r=>["TL","TE","TLE"].includes(motif(r.Motif)?.Code)).length/Math.max(1,team.length)*100;if(p.Code_Alerte==="FO_SIM")v=day.filter(r=>motif(r.Motif)?.Code==="FO").length/Math.max(1,team.length)*100;add(p,p.Libelle,v,d)})}
-});return out.sort((a,b)=>(a.s==="red"?0:1)-(b.s==="red"?0:1))}
+function compute(){
+  const now=new Date();now.setHours(0,0,0,0);
+  const out=[],team=activeTeam(),add=(p,l,v,dt="")=>{const s=severity(p,v);if(s)out.push({s,l,v,u:p.Unite||"",dt})};
+  S.params.filter(p=>p.Actif!==false).forEach(raw=>{
+    const p=raw.Code_Alerte==="PRES_PHY"?physicalParam():raw;
+    const days=Math.max(1,num(p.Fenetre_Jours,1)),end=new Date(now);end.setDate(end.getDate()+days-1);
+    const rr=forecast(now,end);
+
+    if(p.Code_Alerte==="ABS_IND")team.forEach(pe=>{let v=0;rr.filter(r=>r.Ressource===pe.id).forEach(r=>v+=num(motif(r.Motif)?.Absence_Equivalent));add(p,`${pe.nom} · absences prévues`,v)});
+
+    if(p.Code_Alerte==="ABS_EQ"){
+      let abs=0,w=0;
+      rr.forEach(r=>{const m=motif(r.Motif);if(m&&m.Compte_Capacite!==false){w++;abs+=num(m.Absence_Equivalent)}});
+      add(p,"Équipe · taux d’absence prévu",w?abs/w*100:0)
+    }
+
+    if(["CAP_MIN","PRES_PHY","TL_SIM","FO_SIM"].includes(p.Code_Alerte)){
+      const by={};rr.forEach(r=>(by[iso(r.Date)]??=[]).push(r));
+      Object.entries(by).forEach(([d,day])=>{
+        let v=0;
+        if(p.Code_Alerte==="CAP_MIN"){
+          let pr=0,w=0;day.forEach(r=>{const m=motif(r.Motif);if(m&&m.Compte_Capacite!==false){w++;pr+=num(m.Presence_Equivalent)}});
+          v=w?pr/w*100:100
+        }
+        if(p.Code_Alerte==="PRES_PHY")v=day.filter(r=>motif(r.Motif)?.Code==="P").length/Math.max(1,team.length)*100;
+        if(p.Code_Alerte==="TL_SIM")v=day.filter(r=>["TL","TE","TLE"].includes(motif(r.Motif)?.Code)).length/Math.max(1,team.length)*100;
+        if(p.Code_Alerte==="FO_SIM")v=day.filter(r=>motif(r.Motif)?.Code==="FO").length/Math.max(1,team.length)*100;
+        add(p,p.Libelle,v,d)
+      })
+    }
+  });
+  return out.sort((a,b)=>(a.s==="red"?0:1)-(b.s==="red"?0:1))
+}
 function list(el,a){el.innerHTML=a.length?a.map(x=>`<div class="alert ${x.s}"><strong>${x.s==="red"?"Critique":"Vigilance"} · ${esc(x.l)}</strong><small>${x.dt?x.dt+" · ":""}${Number(x.v).toFixed(1)} ${esc(x.u)}</small></div>`).join(""):'<div class="empty">Aucune alerte</div>'}
 function alerts(){S.alerts=compute();list($("allAlerts"),S.alerts)}
 function renderRecent(){const el=$("recent");if(!el)return;const rr=S.presence.slice().sort((a,b)=>date(b.Date)-date(a.Date)).slice(0,30);el.innerHTML=rr.map(r=>`<tr><td>${date(r.Date).toLocaleDateString("fr-FR")}</td><td>${esc(resource(r.Ressource)?.nom||"")}</td><td>${esc(motif(r.Motif)?.Code||"")}</td><td>${esc(r.Statut||"")}</td><td>${esc(r.Commentaire||"")}</td></tr>`).join("")}
