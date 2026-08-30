@@ -433,3 +433,9 @@ Interface :
 - conservation d'une seule ligne `Cockpit RH · V6.18` ;
 - remontée visuelle de la version avec davantage de marge sous le footer ;
 - version masquée lorsque le menu est replié.
+
+
+## V6.19 — correction du chargement
+- suppression de l'appel résiduel à `renderPastForecastCount()` ;
+- cette fonction avait été retirée en V6.17 avec la suppression de la régularisation manuelle des statuts ;
+- correction de l'erreur JavaScript qui affichait `Erreur de chargement` dans la barre latérale.
