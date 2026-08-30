@@ -1,4 +1,4 @@
-const APP_VERSION="V6.15";
+const APP_VERSION="V6.17";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -32,6 +32,18 @@ function activeLocks(){return (S.locks||[]).filter(l=>l.Verrouille!==false)}
 function lockDateString(v){try{return iso(v)}catch(_){return ""}}
 function lockForDate(ds){return activeLocks().find(l=>{const a=lockDateString(l.Date_Debut),b=lockDateString(l.Date_Fin);return a&&b&&ds>=a&&ds<=b})||null}
 function isDateLocked(v){const ds=typeof v==="string"?v:iso(v);return !!lockForDate(ds)}
+function presenceState(v){return isDateLocked(v)?"Réalisé":"Ouvert"}
+function presenceStateHtml(v){return isDateLocked(v)?'<span class="presence-state locked">🔒 Réalisé</span>':'<span class="presence-state open">🔓 Ouvert</span>'}
+async function syncPresenceStatusForRange(from,to){
+  if(!from||!to)return 0;
+  const rows=(S.presence||[]).filter(r=>{const ds=iso(r.Date);return ds>=from&&ds<=to});
+  const updates=rows.map(r=>{
+    const ds=iso(r.Date),desired=isDateLocked(ds)?"Réalisé":"Prévisionnel";
+    return r.Statut===desired?null:{id:r.id,fields:{Statut:desired}}
+  }).filter(Boolean);
+  if(updates.length)await grist.getTable(T.presence).update(updates);
+  return updates.length
+}
 
 async function loadLocks(){
   try{
@@ -54,7 +66,17 @@ function renderPeriodLocks(){
   if(!S.locksTableAvailable){list.innerHTML='<div class="empty">Table Verrous_Periodes_RH absente. Appliquez la migration V6.</div>';return}
   const rows=activeLocks().slice().sort((a,b)=>lockDateString(a.Date_Debut).localeCompare(lockDateString(b.Date_Debut)));
   list.innerHTML=rows.length?rows.map(l=>{const a=lockDateString(l.Date_Debut),b=lockDateString(l.Date_Fin);return `<div class="lock-row" data-id="${l.id}"><div class="lock-icon">🔒</div><div class="lock-main"><strong>${esc(l.Libelle||"Période verrouillée")}</strong><span>${new Date(a+"T12:00:00").toLocaleDateString("fr-FR")} → ${new Date(b+"T12:00:00").toLocaleDateString("fr-FR")}</span>${l.Commentaire?`<small>${esc(l.Commentaire)}</small>`:""}</div><button class="btn secondary unlock-period-btn" type="button" >Déverrouiller</button></div>`}).join(""):'<div class="empty">Aucune période verrouillée.</div>';
-  list.querySelectorAll(".unlock-period-btn").forEach(btn=>btn.onclick=async()=>{const id=Number(btn.closest(".lock-row").dataset.id),l=S.locks.find(x=>x.id===id);if(!l)return;if(!window.confirm(`Déverrouiller « ${l.Libelle||"cette période"} » ?`))return;await grist.getTable(T.locks).update({id,fields:{Verrouille:false}});await loadLocks();renderPeriodLocks();renderMassCalendar();notify("Période déverrouillée")});
+  list.querySelectorAll(".unlock-period-btn").forEach(btn=>btn.onclick=async()=>{
+    const id=Number(btn.closest(".lock-row").dataset.id),l=S.locks.find(x=>x.id===id);if(!l)return;
+    if(!window.confirm(`Déverrouiller « ${l.Libelle||"cette période"} » ?\n\nLes présences qui ne sont plus couvertes par un autre verrou redeviendront ouvertes.`))return;
+    const a=lockDateString(l.Date_Debut),b=lockDateString(l.Date_Fin);
+    await grist.getTable(T.locks).update({id,fields:{Verrouille:false}});
+    await loadLocks();
+    const synced=await syncPresenceStatusForRange(a,b);
+    if(synced)S.presence=gristRows(await grist.docApi.fetchTable(T.presence),"Presences");
+    renderPeriodLocks();renderMassCalendar();renderForecast();renderRecent();pilotage();
+    notify("Période déverrouillée · présences ouvertes")
+  });
 }
 function openPeriodLocksModal(){renderPeriodLocks();const m=$("periodLocksModal");if(m){m.hidden=false;m.style.display="flex";document.body.classList.add("modal-open")}}
 function closePeriodLocksModal(){const m=$("periodLocksModal");if(m){m.hidden=true;m.style.display="none";document.body.classList.remove("modal-open")}}
@@ -130,11 +152,14 @@ async function createPeriodLock(){
       throw new Error("Grist n'a pas renvoyé le verrou après écriture.");
     }
 
+    const synced=await syncPresenceStatusForRange(a,b);
+    if(synced)S.presence=gristRows(await grist.docApi.fetchTable(T.presence),"Presences");
+
     ["lockLabel","lockFrom","lockTo","lockComment"].forEach(id=>{if($(id))$(id).value=""});
     renderPeriodLocks();
     renderMassCalendar();
     setStatus(`Période verrouillée avec succès · ${a} → ${b}`,"success");
-    notify("Période verrouillée");
+    notify("Période verrouillée · présences réalisées");
   }catch(e){
     console.error("Création verrou",e);
     const msg=e?.message||String(e);
@@ -249,22 +274,69 @@ function activityMix(st){
   el.innerHTML=`<div class="mix-bar">${vals.map(x=>`<span class="${x[2]}" style="width:${x[1]/total*100}%"></span>`).join("")}</div><div class="mix-legend">${vals.map(x=>`<div><i class="${x[2]}"></i><span>${x[0]}</span><strong>${(x[1]/total*100).toFixed(1)} %</strong></div>`).join("")}</div>`
 }
 function chart(rr,threshold=70){
-  const by={};rr.forEach(r=>{const m=motif(r.Motif);if(!m||m.Compte_Capacite===false||["WE","F"].includes(m.Code))return;const k=iso(r.Date);by[k]??={w:0,p:0};by[k].w++;by[k].p+=num(m.Presence_Equivalent)});
-  const ds=Object.keys(by).sort(),svg=$("chart");if(!ds.length){svg.innerHTML='<text x="30" y="60" class="axis">Aucune donnée</text>';return}
-  const vs=ds.map(k=>by[k].p/by[k].w*100),W=900,H=300,L=48,R=16,TT=18,B=40,iw=W-L-R,ih=H-TT-B,x=i=>L+(ds.length===1?iw/2:i/(ds.length-1)*iw),y=v=>TT+(100-v)/100*ih;let h="";
-  [0,25,50,75,100].forEach(v=>h+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" class="gridline"/><text x="8" y="${y(v)+4}" class="axis">${v}%</text>`);
-  h+=`<line x1="${L}" x2="${W-R}" y1="${y(threshold)}" y2="${y(threshold)}" class="threshold-line"/><text x="${W-R-74}" y="${y(threshold)-6}" class="threshold-label">${threshold.toFixed(0)}%</text>`;
-  h+=`<polyline points="${vs.map((v,i)=>`${x(i)},${y(v)}`).join(" ")}" class="line"/>`;svg.innerHTML=h
+  const by={};
+  rr.forEach(r=>{
+    const m=motif(r.Motif);
+    if(!m||m.Compte_Capacite===false||["WE","F"].includes(m.Code))return;
+    const k=iso(r.Date);by[k]??={w:0,p:0};by[k].w++;by[k].p+=num(m.Presence_Equivalent)
+  });
+  const ds=Object.keys(by).sort(),svg=$("chart");
+  if(!ds.length){svg.innerHTML='<text x="30" y="60" class="axis">Aucune donnée</text>';return}
+
+  const vs=ds.map(k=>by[k].p/by[k].w*100),W=900,H=300,L=48,R=16,TT=18,B=48,iw=W-L-R,ih=H-TT-B;
+  const x=i=>L+(ds.length===1?iw/2:i/(ds.length-1)*iw),y=v=>TT+(100-v)/100*ih;
+  const shortDate=k=>{
+    const d=date(k);
+    return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`
+  };
+  // Environ 7 à 9 repères temporels maximum, mais tous les points restent tracés.
+  const maxTicks=8,step=Math.max(1,Math.ceil((ds.length-1)/Math.max(1,maxTicks-1)));
+  const tickIdx=[];
+  for(let i=0;i<ds.length;i+=step)tickIdx.push(i);
+  if(tickIdx[tickIdx.length-1]!==ds.length-1)tickIdx.push(ds.length-1);
+
+  let h="";
+  [0,25,50,75,100].forEach(v=>{
+    h+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" class="gridline"/>`;
+    h+=`<text x="8" y="${y(v)+4}" class="axis">${v}%</text>`
+  });
+
+  // Axe des abscisses et dates.
+  h+=`<line x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}" class="x-axis-line"/>`;
+  tickIdx.forEach(i=>{
+    const xx=x(i);
+    h+=`<line x1="${xx}" x2="${xx}" y1="${H-B}" y2="${H-B+5}" class="x-axis-tick"/>`;
+    h+=`<text x="${xx}" y="${H-B+19}" text-anchor="middle" class="axis x-axis-label">${shortDate(ds[i])}</text>`
+  });
+
+  h+=`<line x1="${L}" x2="${W-R}" y1="${y(threshold)}" y2="${y(threshold)}" class="threshold-line"/>`;
+  h+=`<text x="${W-R-74}" y="${y(threshold)-6}" class="threshold-label">${threshold.toFixed(0)}%</text>`;
+  h+=`<polyline points="${vs.map((v,i)=>`${x(i)},${y(v)}`).join(" ")}" class="line"/>`;
+
+  // Points transparents élargissant la zone de survol + tooltip SVG natif.
+  vs.forEach((v,i)=>{
+    const label=`${new Intl.DateTimeFormat("fr-FR",{weekday:"short",day:"2-digit",month:"2-digit",year:"numeric"}).format(date(ds[i]))} · Capacité ${v.toFixed(1)} %`;
+    h+=`<circle cx="${x(i)}" cy="${y(v)}" r="7" class="chart-hover-point"><title>${esc(label)}</title></circle>`
+  });
+  svg.innerHTML=h
 }
 function weekKey(d){const x=new Date(d);x.setHours(0,0,0,0);const day=(x.getDay()+6)%7;x.setDate(x.getDate()-day);return iso(x)}
 function forecastRealChart(rr){
-  const by={};rr.forEach(r=>{const m=motif(r.Motif);if(!m||m.Compte_Capacite===false||["WE","F"].includes(m.Code))return;const k=weekKey(date(r.Date)),kind=r.Statut==="Réalisé"?"real":["Prévisionnel","Confirmé"].includes(r.Statut)?"forecast":null;if(!kind)return;by[k]??={forecast:{w:0,p:0},real:{w:0,p:0}};by[k][kind].w++;by[k][kind].p+=num(m.Presence_Equivalent)});
-  const ds=Object.keys(by).sort(),svg=$("forecastRealChart");if(!ds.length){svg.innerHTML='<text x="30" y="60" class="axis">Aucune donnée</text>';return}
+  const by={};
+  rr.forEach(r=>{
+    const m=motif(r.Motif);if(!m||m.Compte_Capacite===false||["WE","F"].includes(m.Code))return;
+    const k=weekKey(date(r.Date)),kind=isDateLocked(iso(r.Date))?"real":"forecast";
+    by[k]??={forecast:{w:0,p:0},real:{w:0,p:0}};
+    by[k][kind].w++;by[k][kind].p+=num(m.Presence_Equivalent)
+  });
+  const ds=Object.keys(by).sort(),svg=$("forecastRealChart");
+  if(!ds.length){svg.innerHTML='<text x="30" y="60" class="axis">Aucune donnée</text>';return}
   const W=900,H=300,L=48,R=16,T=18,B=42,iw=W-L-R,ih=H-T-B,x=i=>L+(ds.length===1?iw/2:i/(ds.length-1)*iw),y=v=>T+(100-v)/100*ih;
   const val=(k,t)=>by[k][t].w?by[k][t].p/by[k][t].w*100:null;let h="";
   [0,25,50,75,100].forEach(v=>h+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" class="gridline"/><text x="8" y="${y(v)+4}" class="axis">${v}%</text>`);
   const segments=t=>{let seg=[],all=[];ds.forEach((k,i)=>{const v=val(k,t);if(v===null){if(seg.length)all.push(seg);seg=[]}else seg.push(`${x(i)},${y(v)}`)});if(seg.length)all.push(seg);return all};
-  segments("forecast").forEach(s=>h+=`<polyline points="${s.join(" ")}" class="line forecast-line"/>`);segments("real").forEach(s=>h+=`<polyline points="${s.join(" ")}" class="line realized-line"/>`);
+  segments("forecast").forEach(s=>h+=`<polyline points="${s.join(" ")}" class="line forecast-line"/>`);
+  segments("real").forEach(s=>h+=`<polyline points="${s.join(" ")}" class="line realized-line"/>`);
   ds.forEach((k,i)=>{if(i===0||i===ds.length-1||i%Math.max(1,Math.ceil(ds.length/5))===0)h+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" class="axis">${new Date(k+"T00:00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"})}</text>`});
   svg.innerHTML=h
 }
@@ -276,7 +348,7 @@ function renderAttention(rr,below,threshold){
   $("attentionCount").textContent=String(unique.length);$("attentionList").innerHTML=unique.length?unique.slice(0,8).map(x=>`<div class="attention-item ${x.level}"><span></span><div><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></div></div>`).join(""):'<div class="attention-ok">Aucun point d’attention sur la sélection.</div>'
 }
 function severity(p,v){const o=num(p.Seuil_Orange),r=num(p.Seuil_Rouge);if(p.Sens==="MIN"){if(v<=r)return"red";if(v<=o)return"orange"}else{if(v>=r)return"red";if(v>=o)return"orange"}return null}
-function forecast(a,b){return S.presence.filter(r=>{const d=date(r.Date);return d>=a&&d<=b&&["Prévisionnel","Confirmé"].includes(r.Statut)})}
+function forecast(a,b){return S.presence.filter(r=>{const d=date(r.Date),ds=iso(r.Date);return d>=a&&d<=b&&!isDateLocked(ds)})}
 function compute(){
   const now=new Date();now.setHours(0,0,0,0);
   const out=[],team=activeTeam(),add=(p,l,v,dt="")=>{const s=severity(p,v);if(s)out.push({s,l,v,u:p.Unite||"",dt})};
@@ -312,10 +384,14 @@ function compute(){
 }
 function list(el,a){el.innerHTML=a.length?a.map(x=>`<div class="alert ${x.s}"><strong>${x.s==="red"?"Critique":"Vigilance"} · ${esc(x.l)}</strong><small>${x.dt?x.dt+" · ":""}${Number(x.v).toFixed(1)} ${esc(x.u)}</small></div>`).join(""):'<div class="empty">Aucune alerte</div>'}
 function alerts(){S.alerts=compute();list($("allAlerts"),S.alerts)}
-function renderRecent(){const el=$("recent");if(!el)return;const rr=S.presence.slice().sort((a,b)=>date(b.Date)-date(a.Date)).slice(0,30);el.innerHTML=rr.map(r=>`<tr><td>${date(r.Date).toLocaleDateString("fr-FR")}</td><td>${esc(resource(r.Ressource)?.nom||"")}</td><td>${esc(motif(r.Motif)?.Code||"")}</td><td>${esc(r.Statut||"")}</td><td>${esc(r.Commentaire||"")}</td></tr>`).join("")}
+function renderRecent(){const el=$("recent");if(!el)return;const rr=S.presence.slice().sort((a,b)=>date(b.Date)-date(a.Date)).slice(0,30);el.innerHTML=rr.map(r=>`<tr><td>${date(r.Date).toLocaleDateString("fr-FR")}</td><td>${esc(resource(r.Ressource)?.nom||"")}</td><td>${esc(motif(r.Motif)?.Code||"")}</td><td>${presenceStateHtml(iso(r.Date))}</td><td>${esc(r.Commentaire||"")}</td></tr>`).join("")}
 
 function teamRef(id){return S.teams.find(x=>x.id===Number(id))}
-function renderForecast(){const now=new Date();now.setHours(0,0,0,0);const rr=S.presence.filter(r=>date(r.Date)>=now&&["Prévisionnel","Confirmé"].includes(r.Statut)).slice().sort((a,b)=>date(a.Date)-date(b.Date)).slice(0,150);$("forecastRows").innerHTML=rr.length?rr.map(r=>`<tr><td>${date(r.Date).toLocaleDateString("fr-FR")}</td><td>${esc(resource(r.Ressource)?.nom||"")}</td><td>${esc(motif(r.Motif)?.Code||"")}</td><td>${esc(r.Statut||"")}</td><td>${esc(r.Commentaire||"")}</td></tr>`).join(""):'<tr><td colspan="5" class="empty">Aucune donnée prévisionnelle</td></tr>'}
+function renderForecast(){
+  const now=new Date();now.setHours(0,0,0,0);
+  const rr=S.presence.filter(r=>date(r.Date)>=now&&!isDateLocked(iso(r.Date))).slice().sort((a,b)=>date(a.Date)-date(b.Date)).slice(0,150);
+  $("forecastRows").innerHTML=rr.length?rr.map(r=>`<tr><td>${date(r.Date).toLocaleDateString("fr-FR")}</td><td>${esc(resource(r.Ressource)?.nom||"")}</td><td>${esc(motif(r.Motif)?.Code||"")}</td><td>${presenceStateHtml(iso(r.Date))}</td><td>${esc(r.Commentaire||"")}</td></tr>`).join(""):'<tr><td colspan="5" class="empty">Aucune présence ouverte à venir.</td></tr>'
+}
 function motifSoftColor(code){const map={"A":["#daf2d8","#258a31"],"1/2 M":["#dcecff","#2672c5"],"1/2 AM":["#dcecff","#2672c5"],"FO":["#fff0cf","#b06d00"],"F":["#eee5fa","#7a45b2"],"WE":["#eef1f4","#4f6474"],"TE":["#d9f3f2","#12877f"],"TLE":["#d9f3f2","#12877f"],"TL":["#d9f3f2","#12877f"],"P":["#ffe0e8","#d83467"]};return map[code]||["#e8f4f3","#176b68"]}
 function renderMassFilters(){const el=$("massTeam");if(!el)return;const current=el.value;el.innerHTML='<option value="">Toutes les équipes</option>'+S.teams.map(t=>`<option value="${t.id}">${esc(t.Libelle||t.Code||"Équipe")}</option>`).join("");if([...el.options].some(o=>o.value===current))el.value=current}
 function renderMassMotifs(){const el=$("massMotifs");if(!el)return;const usable=S.motifs.filter(m=>m.Actif!==false);if(!S.selectedMotif&&usable.length)S.selectedMotif=usable.find(m=>m.Code==="A")?.id||usable[0].id;el.innerHTML=usable.map(m=>{const [bg,fg]=motifSoftColor(m.Code);return `<button class="motif-btn ${S.selectedMotif===m.id?"active":""}" data-id="${m.id}" style="background:${bg};color:${fg}">${esc(m.Code)}<small>${esc(m.Libelle||"")}</small></button>`}).join("");el.querySelectorAll(".motif-btn").forEach(b=>b.onclick=()=>{S.selectedMotif=Number(b.dataset.id);renderMassMotifs()})}
@@ -372,10 +448,10 @@ function toggleCell(resourceId,dateStr){if(isDateLocked(dateStr))return notify("
 function selectAllVisible(){if(!S.selectedMotif)return notify("Sélectionnez un motif.");const res=massResources(),days=daysInCurrentHalf(S.month).filter(d=>![0,6].includes(d.getDay())&&!isDateLocked(iso(d)));res.forEach(r=>days.forEach(d=>{const ds=iso(d),key=cellKey(r.id,ds);S.selectedCells.add(key);S.changes.set(key,S.selectedMotif)}));renderMassCalendar()}
 function clearSelection(){S.selectedCells.clear();S.changes.clear();renderMassCalendar()}
 function deleteSelection(){if(!S.selectedCells.size)return notify("Aucune case sélectionnée.");S.selectedCells.forEach(key=>S.changes.set(key,null));renderMassCalendar()}
-async function saveMass(){if(!S.changes.size)return notify("Aucune modification à enregistrer.");const lc=[...S.changes.keys()].filter(k=>isDateLocked(k.split("|")[1]));if(lc.length)throw new Error(`${lc.length} modification(s) concernent une période verrouillée.`);const table=grist.getTable(T.presence),creates=[],updates=[];for(const [key,mid] of S.changes.entries()){const [ridStr,ds]=key.split("|"),rid=Number(ridStr),old=presenceFor(rid,ds);if(mid===null){if(old)updates.push({id:old.id,fields:{Motif:0,Commentaire:"",Source:"Widget"}});continue}const fields={Ressource:rid,Date:epoch(ds),Motif:Number(mid),Statut:$("massStatus").value,Commentaire:$("massComment").value.trim(),Source:"Widget"};old?updates.push({id:old.id,fields}):creates.push({fields})}if(updates.length)await table.update(updates);if(creates.length)await table.create(creates);const total=creates.length+updates.length;S.changes.clear();S.selectedCells.clear();notify(`${total} modification${total>1?"s":""} enregistrée${total>1?"s":""}`);await load()}
+async function saveMass(){if(!S.changes.size)return notify("Aucune modification à enregistrer.");const lc=[...S.changes.keys()].filter(k=>isDateLocked(k.split("|")[1]));if(lc.length)throw new Error(`${lc.length} modification(s) concernent une période verrouillée.`);const table=grist.getTable(T.presence),creates=[],updates=[];for(const [key,mid] of S.changes.entries()){const [ridStr,ds]=key.split("|"),rid=Number(ridStr),old=presenceFor(rid,ds);if(mid===null){if(old)updates.push({id:old.id,fields:{Motif:0,Commentaire:"",Source:"Widget"}});continue}const fields={Ressource:rid,Date:epoch(ds),Motif:Number(mid),Statut:"Prévisionnel",Commentaire:$("massComment").value.trim(),Source:"Widget"};old?updates.push({id:old.id,fields}):creates.push({fields})}if(updates.length)await table.update(updates);if(creates.length)await table.create(creates);const total=creates.length+updates.length;S.changes.clear();S.selectedCells.clear();notify(`${total} modification${total>1?"s":""} enregistrée${total>1?"s":""}`);await load()}
 function renderLegend(){const el=$("massLegend");if(!el)return;el.innerHTML=S.motifs.filter(m=>m.Actif!==false).map(m=>{const [bg,fg]=motifSoftColor(m.Code);return `<div class="legend-item"><span class="legend-code" style="background:${bg};color:${fg}">${esc(m.Code)}</span><span>${esc(m.Libelle||"")}</span></div>`}).join("")}
-const CSV_HEADER=["Nom_Ressource","Email","Equipe_Code","Role","Capacite_ETP","Date","Motif","Statut","Commentaire"];
-const CSV_EXAMPLE=[CSV_HEADER.join(";"),"Alice Martin;alice@example.com;ACC;Dev;1;2026-09-01;TL;Prévisionnel;Télétravail","Nouveau Collab;new@example.com;ACC;QA;1;2026-09-02;FO;Confirmé;Formation"].join("\\n");
+const CSV_HEADER=["Nom_Ressource","Email","Equipe_Code","Role","Capacite_ETP","Date","Motif","Commentaire"];
+const CSV_EXAMPLE=[CSV_HEADER.join(";"),"Alice Martin;alice@example.com;ACC;Dev;1;2026-09-01;TL;Télétravail","Nouveau Collab;new@example.com;ACC;QA;1;2026-09-02;FO;Formation"].join("\\n");
 function csvSetup(){const b=new Blob(["\\ufeff"+CSV_EXAMPLE],{type:"text/csv;charset=utf-8"});$("downloadTemplate").href=URL.createObjectURL(b)}
 function csvLine(s,sep){let a=[],c="",q=false;for(let i=0;i<s.length;i++){let x=s[i];if(x=='"'){if(q&&s[i+1]=='"'){c+='"';i++}else q=!q}else if(x===sep&&!q){a.push(c);c=""}else c+=x}a.push(c);return a}
 
@@ -411,10 +487,27 @@ function csvParse(t){t=String(t??"").replace(/^\uFEFF/,"").replace(/\r\n/g,"\n")
 function csvResource(r){let em=(r.Email||"").toLowerCase(),nm=(r.Nom_Ressource||"").toLowerCase();return(em&&S.team.find(x=>(x.email||"").toLowerCase()===em))||S.team.find(x=>(x.nom||"").toLowerCase()===nm)}
 function csvTeam(v){v=(v||"").toLowerCase();return S.teams.find(x=>(x.Code||"").toLowerCase()===v||(x.Libelle||"").toLowerCase()===v)}
 function csvMotif(v){v=(v||"").toUpperCase();return S.motifs.find(x=>(x.Code||"").toUpperCase()===v)}
-function csvAnalyze(p){let miss=CSV_HEADER.filter(x=>!p.headers.includes(x));if(miss.length)throw Error("Colonnes manquantes : "+miss.join(", ")+" · Colonnes détectées : "+p.headers.join(" | "));let nr=new Map(),nt=new Map(),rows=[];for(let r of p.rows){let d=[],res=csvResource(r),tm=csvTeam(r.Equipe_Code),mo=csvMotif(r.Motif),bad=false,st=normalizeCsvStatus(r.Statut||"Prévisionnel"),nd=normalizeCsvDate(r.Date);if(!r.Nom_Ressource&&!r.Email){d.push("Ressource obligatoire");bad=true}if(!nd){d.push("Date invalide (JJ/MM/AAAA ou AAAA-MM-JJ)");bad=true}else r.Date=nd;if(nd&&isDateLocked(nd)){d.push("Période verrouillée");bad=true;}if(!mo){d.push("Motif inconnu");bad=true}if(!["Prévisionnel","Confirmé","Réalisé"].includes(st)){d.push("Statut invalide");bad=true}let key=(r.Email||r.Nom_Ressource).toLowerCase(),teamKey=(r.Equipe_Code||"").trim().toLowerCase();if(r.Equipe_Code&&!tm&&!nt.has(teamKey))nt.set(teamKey,{key:teamKey,Code:r.Equipe_Code.trim(),Libelle:r.Equipe_Code.trim(),Description:"Créée automatiquement par import CSV"});if(!res&&!nr.has(key))nr.set(key,{...r,key,teamId:tm?.id||0,teamKey});if(r.Equipe_Code&&!tm)d.push("Équipe à créer automatiquement");let old=res&&nd?S.presence.find(x=>x.Ressource===res.id&&iso(x.Date)===nd):null;rows.push({...r,status:st,res,mo,key,teamKey,old,bad,diag:d.join(" · ")||"OK",action:res?(old?"Modifier":"Créer"):"Créer ressource + présence"})}return{rows,newResources:nr,newTeams:nt}}
-function csvRender(){let a=S.csvAnalysis;if(!a){$("csvPreview").innerHTML="";$("importCsv").disabled=true;return}let ok=a.rows.filter(x=>!x.bad),er=a.rows.filter(x=>x.bad);$("csvValid").textContent=ok.length;$("csvNewResources").textContent=a.newResources.size;$("csvCreates").textContent=ok.filter(x=>!x.old).length;$("csvUpdates").textContent=ok.filter(x=>x.old).length;$("csvErrors").textContent=er.length;$("importCsv").disabled=er.length>0||!ok.length;$("csvMessage").textContent=er.length?"Corrigez les erreurs avant import.":`Analyse OK : ${a.newTeams?.size||0} équipe(s) et ${a.newResources.size} ressource(s) seront créées si nécessaire.`;$("csvPreview").innerHTML=a.rows.slice(0,200).map(x=>`<tr><td>${x._line}</td><td>${esc(x.Nom_Ressource)}</td><td>${esc(x.Email)}</td><td>${esc(x.Equipe_Code)}</td><td>${esc(x.Date)}</td><td>${esc(x.Motif)}</td><td>${esc(x.status)}</td><td>${esc(x.action)}</td><td class="${x.bad?"diag-error":x.diag==="OK"?"diag-ok":"diag-warn"}">${esc(x.diag)}</td></tr>`).join("")}
+function csvAnalyze(p){
+  let miss=CSV_HEADER.filter(x=>!p.headers.includes(x));if(miss.length)throw Error("Colonnes manquantes : "+miss.join(", ")+" · Colonnes détectées : "+p.headers.join(" | "));
+  let nr=new Map(),nt=new Map(),rows=[];
+  for(let r of p.rows){
+    let d=[],res=csvResource(r),tm=csvTeam(r.Equipe_Code),mo=csvMotif(r.Motif),bad=false,nd=normalizeCsvDate(r.Date);
+    if(!r.Nom_Ressource&&!r.Email){d.push("Ressource obligatoire");bad=true}
+    if(!nd){d.push("Date invalide (JJ/MM/AAAA ou AAAA-MM-JJ)");bad=true}else r.Date=nd;
+    if(nd&&isDateLocked(nd)){d.push("Période verrouillée");bad=true}
+    if(!mo){d.push("Motif inconnu");bad=true}
+    let key=(r.Email||r.Nom_Ressource).toLowerCase(),teamKey=(r.Equipe_Code||"").trim().toLowerCase();
+    if(r.Equipe_Code&&!tm&&!nt.has(teamKey))nt.set(teamKey,{key:teamKey,Code:r.Equipe_Code.trim(),Libelle:r.Equipe_Code.trim(),Description:"Créée automatiquement par import CSV"});
+    if(!res&&!nr.has(key))nr.set(key,{...r,key,teamId:tm?.id||0,teamKey});
+    if(r.Equipe_Code&&!tm)d.push("Équipe à créer automatiquement");
+    let old=res&&nd?S.presence.find(x=>x.Ressource===res.id&&iso(x.Date)===nd):null;
+    rows.push({...r,status:"Prévisionnel",res,mo,key,teamKey,old,bad,diag:d.join(" · ")||"OK",action:res?(old?"Modifier":"Créer"):"Créer ressource + présence"})
+  }
+  return{rows,newResources:nr,newTeams:nt}
+}
+function csvRender(){let a=S.csvAnalysis;if(!a){$("csvPreview").innerHTML="";$("importCsv").disabled=true;return}let ok=a.rows.filter(x=>!x.bad),er=a.rows.filter(x=>x.bad);$("csvValid").textContent=ok.length;$("csvNewResources").textContent=a.newResources.size;$("csvCreates").textContent=ok.filter(x=>!x.old).length;$("csvUpdates").textContent=ok.filter(x=>x.old).length;$("csvErrors").textContent=er.length;$("importCsv").disabled=er.length>0||!ok.length;$("csvMessage").textContent=er.length?"Corrigez les erreurs avant import.":`Analyse OK : ${a.newTeams?.size||0} équipe(s) et ${a.newResources.size} ressource(s) seront créées si nécessaire.`;$("csvPreview").innerHTML=a.rows.slice(0,200).map(x=>`<tr><td>${x._line}</td><td>${esc(x.Nom_Ressource)}</td><td>${esc(x.Email)}</td><td>${esc(x.Equipe_Code)}</td><td>${esc(x.Date)}</td><td>${esc(x.Motif)}</td><td>${esc(x.action)}</td><td class="${x.bad?"diag-error":x.diag==="OK"?"diag-ok":"diag-warn"}">${esc(x.diag)}</td></tr>`).join("")}
 async function csvAnalyzeFile(){let f=$("csvFile").files?.[0];if(!f)throw Error("Sélectionnez un CSV");let p=csvParse(await readCsvFileText(f));S.csvAnalysis={...p,...csvAnalyze(p)};csvRender()}
-async function csvImport(){let a=S.csvAnalysis;if(!a||a.rows.some(x=>x.bad))throw Error("Analyse invalide");let teamRefTable=grist.getTable(T.teams),tt=grist.getTable(T.team),pt=grist.getTable(T.presence),createdTeams=new Map(),createdResources=new Map();for(let t of (a.newTeams?.values()||[])){let z=await teamRefTable.create({fields:{Code:t.Code,Libelle:t.Libelle,Description:t.Description||""}});if(typeof z==="number")createdTeams.set(t.key,z);else if(z?.id)createdTeams.set(t.key,z.id)}if(a.newTeams?.size){S.teams=gristRows(await grist.docApi.fetchTable(T.teams),"Team_ref");for(let t of a.newTeams.values())if(!createdTeams.has(t.key)){let found=csvTeam(t.Code);if(found)createdTeams.set(t.key,found.id)}}for(let r of a.newResources.values()){let teamId=Number(r.teamId||0);if(!teamId&&r.teamKey)teamId=Number(createdTeams.get(r.teamKey)||0);let z=await tt.create({fields:{nom:r.Nom_Ressource||r.Email,email:r.Email||"",role:r.Role||"",capacite_ETP:num(r.Capacite_ETP,1),actif:true,equipe:teamId}});if(typeof z==="number")createdResources.set(r.key,z);else if(z?.id)createdResources.set(r.key,z.id)}if(a.newResources.size){S.team=gristRows(await grist.docApi.fetchTable(T.team),"Team");for(let r of a.newResources.values())if(!createdResources.has(r.key)){let m=csvResource(r);if(m)createdResources.set(r.key,m.id)}}S.presence=gristRows(await grist.docApi.fetchTable(T.presence),"Presences");let cr=[],up=[];for(let r of a.rows){let rid=r.res?.id||createdResources.get(r.key);if(!rid)throw Error("Ressource introuvable ligne "+r._line);let old=S.presence.find(x=>x.Ressource===rid&&iso(x.Date)===r.Date),fields={Ressource:rid,Date:epoch(r.Date),Motif:r.mo.id,Statut:r.status,Commentaire:r.Commentaire||"",Source:"Import"};old?up.push({id:old.id,fields}):cr.push({fields})}if(up.length)await pt.update(up);if(cr.length)await pt.create(cr);$("csvMessage").textContent=`Import terminé : ${a.newTeams?.size||0} équipe(s), ${a.newResources.size} ressource(s), ${cr.length} création(s), ${up.length} mise(s) à jour.`;S.csvAnalysis=null;$("csvFile").value="";csvRender();await load();notify("Import CSV terminé")}
+async function csvImport(){let a=S.csvAnalysis;if(!a||a.rows.some(x=>x.bad))throw Error("Analyse invalide");let teamRefTable=grist.getTable(T.teams),tt=grist.getTable(T.team),pt=grist.getTable(T.presence),createdTeams=new Map(),createdResources=new Map();for(let t of (a.newTeams?.values()||[])){let z=await teamRefTable.create({fields:{Code:t.Code,Libelle:t.Libelle,Description:t.Description||""}});if(typeof z==="number")createdTeams.set(t.key,z);else if(z?.id)createdTeams.set(t.key,z.id)}if(a.newTeams?.size){S.teams=gristRows(await grist.docApi.fetchTable(T.teams),"Team_ref");for(let t of a.newTeams.values())if(!createdTeams.has(t.key)){let found=csvTeam(t.Code);if(found)createdTeams.set(t.key,found.id)}}for(let r of a.newResources.values()){let teamId=Number(r.teamId||0);if(!teamId&&r.teamKey)teamId=Number(createdTeams.get(r.teamKey)||0);let z=await tt.create({fields:{nom:r.Nom_Ressource||r.Email,email:r.Email||"",role:r.Role||"",capacite_ETP:num(r.Capacite_ETP,1),actif:true,equipe:teamId}});if(typeof z==="number")createdResources.set(r.key,z);else if(z?.id)createdResources.set(r.key,z.id)}if(a.newResources.size){S.team=gristRows(await grist.docApi.fetchTable(T.team),"Team");for(let r of a.newResources.values())if(!createdResources.has(r.key)){let m=csvResource(r);if(m)createdResources.set(r.key,m.id)}}S.presence=gristRows(await grist.docApi.fetchTable(T.presence),"Presences");let cr=[],up=[];for(let r of a.rows){let rid=r.res?.id||createdResources.get(r.key);if(!rid)throw Error("Ressource introuvable ligne "+r._line);let old=S.presence.find(x=>x.Ressource===rid&&iso(x.Date)===r.Date),fields={Ressource:rid,Date:epoch(r.Date),Motif:r.mo.id,Statut:"Prévisionnel",Commentaire:r.Commentaire||"",Source:"Import"};old?up.push({id:old.id,fields}):cr.push({fields})}if(up.length)await pt.update(up);if(cr.length)await pt.create(cr);$("csvMessage").textContent=`Import terminé : ${a.newTeams?.size||0} équipe(s), ${a.newResources.size} ressource(s), ${cr.length} création(s), ${up.length} mise(s) à jour.`;S.csvAnalysis=null;$("csvFile").value="";csvRender();await load();notify("Import CSV terminé")}
 
 /* EXCEL IMPORT --------------------------------------------------------- */
 function excelDateToIso(v){
@@ -481,7 +574,7 @@ function excelSheetToCsvRows(){
       if(!known.has(code.toUpperCase())){unknown.add(code);continue}
       rows.push({
         _line:r+1,Nom_Ressource:name,Email:"",Equipe_Code:defaultTeam,Role:"",Capacite_ETP:"1",
-        Date:dc.ds,Motif:code,Statut:"Prévisionnel",Commentaire:`Import Excel · ${sheetName}`
+        Date:dc.ds,Motif:code,Commentaire:`Import Excel · ${sheetName}`
       });produced++;
     }
     if(produced)resources++;
@@ -585,55 +678,6 @@ function toggleMotifInfo(){
   const willShow=panel.hidden;
   panel.hidden=!willShow;
   btn.textContent=willShow?"ⓘ Masquer les motifs":"ⓘ Motifs disponibles";
-}
-
-function pastForecastRows(){
-  const today=new Date();
-  today.setHours(0,0,0,0);
-  return S.presence.filter(r=>{
-    const d=date(r.Date);
-    d.setHours(0,0,0,0);
-    return d<today && r.Statut==="Prévisionnel" && !isDateLocked(iso(r.Date));
-  });
-}
-
-function renderPastForecastCount(){
-  const el=$("pastForecastCount");
-  const btn=$("markPastAsDone");
-  if(!el)return;
-  const rows=pastForecastRows();
-  el.textContent=`${rows.length} à régulariser`;
-  if(btn)btn.disabled=rows.length===0;
-}
-
-async function markPastForecastAsDone(){
-  const rows=pastForecastRows();
-  if(!rows.length){
-    if($("pastForecastMessage"))$("pastForecastMessage").textContent="Aucune saisie passée en Prévisionnel.";
-    return notify("Aucune saisie à régulariser");
-  }
-
-  const ok=window.confirm(`Passer ${rows.length} saisie(s) passée(s) de Prévisionnel à Réalisé ?`);
-  if(!ok)return;
-
-  const btn=$("markPastAsDone");
-  if(btn){btn.disabled=true;btn.textContent="Mise à jour…";}
-  try{
-    const updates=rows.map(r=>({id:r.id,fields:{Statut:"Réalisé"}}));
-    await grist.getTable(T.presence).update(updates);
-
-    if($("pastForecastMessage")){
-      $("pastForecastMessage").textContent=`${updates.length} saisie(s) passée(s) ont été basculées en Réalisé.`;
-    }
-    notify(`${updates.length} saisie(s) régularisée(s)`);
-    await load();
-    renderPastForecastCount();
-  }finally{
-    if(btn){
-      btn.textContent="Passer les jours passés en Réalisé";
-      btn.disabled=pastForecastRows().length===0;
-    }
-  }
 }
 
 
@@ -820,7 +864,7 @@ function updateInitCalendarPreview(){
   const btn=$("initCalendarBtn");
   if(btn)btn.disabled=(p.creates.length+p.updates.length)===0;
 }
-function openInitCalendarModal(){renderInitCalendarPeople();renderInitCalendarMotifs();const now=new Date();if($("initCalendarYear"))$("initCalendarYear").value=String(now.getFullYear());if($("initCalendarAction"))$("initCalendarAction").value="initialize";if($("initCalendarMode"))$("initCalendarMode").value="year";if($("initPreserveHolidays"))$("initPreserveHolidays").checked=true;if($("initCalendarStatus"))$("initCalendarStatus").value="Prévisionnel";updateInitCalendarMode();const m=$("initCalendarModal");if(m){m.hidden=false;m.style.display="flex";document.body.classList.add("modal-open")}}
+function openInitCalendarModal(){renderInitCalendarPeople();renderInitCalendarMotifs();const now=new Date();if($("initCalendarYear"))$("initCalendarYear").value=String(now.getFullYear());if($("initCalendarAction"))$("initCalendarAction").value="initialize";if($("initCalendarMode"))$("initCalendarMode").value="year";if($("initPreserveHolidays"))$("initPreserveHolidays").checked=true;updateInitCalendarMode();const m=$("initCalendarModal");if(m){m.hidden=false;m.style.display="flex";document.body.classList.add("modal-open")}}
 function closeInitCalendarModal(){const m=$("initCalendarModal");if(m){m.hidden=true;m.style.display="none";document.body.classList.remove("modal-open")}}
 async function initializeCalendar(){
   const rid=Number($("initCalendarPerson")?.value||0);
@@ -832,7 +876,6 @@ async function initializeCalendar(){
 
   const pe=resource(rid);
   const action=$("initCalendarAction")?.value||"initialize";
-  const status=$("initCalendarStatus")?.value||"Prévisionnel";
   const modeLabel=action==="upsert"?"Modifier en masse":"Initialiser";
 
   const message=
@@ -855,7 +898,7 @@ async function initializeCalendar(){
         Ressource:rid,
         Date:epoch(x.ds),
         Motif:Number(x.motifId),
-        Statut:status,
+        Statut:"Prévisionnel",
         Commentaire:"Initialisation / modification calendrier",
         Source:"Widget"
       }
@@ -865,7 +908,7 @@ async function initializeCalendar(){
       id:x.record.id,
       fields:{
         Motif:Number(x.motifId),
-        Statut:status,
+        Statut:"Prévisionnel",
         Commentaire:"Modification en masse calendrier",
         Source:"Widget"
       }
@@ -911,16 +954,16 @@ function initSidebar(){
 function presenceContext(){
   const active=document.querySelector(".nav-item.active");
   const view=active?.dataset?.view||"pilotage";
-  const labels={pilotage:"Cockpit",previsionnel:"Prévisionnel",saisie:"Feuille de présence",imports:"Imports",alertes:"Alertes",rapports:"Rapports"};
+  const labels={pilotage:"Cockpit",previsionnel:"Planning",saisie:"Feuille de présence",imports:"Imports",alertes:"Alertes",rapports:"Rapports"};
   return {module:"Cockpit RH",context:labels[view]||"Cockpit RH",contextId:""};
 }
 
 function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");window.PmoPresence?.touch?.();document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={
-      pilotage:["Cockpit RH","Disponibilité, capacité et alertes prévisionnelles"],
-      previsionnel:["Prévisionnel","Présences et absences futures ou confirmées"],
+      pilotage:["Cockpit RH","Disponibilité, capacité et alertes sur les présences ouvertes"],
+      previsionnel:["Planning","Présences ouvertes et périodes réalisées par verrouillage"],
       saisie:["Feuille de présence","Saisie rapide des présences et absences pour plusieurs ressources"],
       imports:["Imports","Importez des calendriers Excel ou CSV dans Grist"],
-      alertes:["Alertes","Alertes prévisionnelles selon les seuils configurés"],
+      alertes:["Alertes","Alertes calculées sur les présences ouvertes selon les seuils configurés"],
       rapports:["Rapports","Synthèse des dernières saisies enregistrées"]
     };
     $("title").textContent=t[b.dataset.view][0];
@@ -932,8 +975,8 @@ $("resetCsv").onclick=resetCsvImport;csvSetup();
 $("excelFile").onchange=()=>loadExcelWorkbook().catch(e=>{$("excelInfo").textContent=e.message;notify(e.message)});
 $("excelSheet").onchange=()=>{$("analyzeExcel").disabled=!$("excelSheet").value;$("excelInfo").textContent=$("excelSheet").value?`Feuille sélectionnée : ${$("excelSheet").value}`:""};
 $("analyzeExcel").onclick=()=>{try{analyzeExcelSheet()}catch(e){S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)}};
-$("resetExcel").onclick=resetExcelImport;if($("refreshPastForecast"))$("refreshPastForecast").onclick=renderPastForecastCount;
-if($("markPastAsDone"))$("markPastAsDone").onclick=()=>markPastForecastAsDone().catch(e=>notify(e.message||e));
+$("resetExcel").onclick=resetExcelImport;if($("refreshPastForecast"))
+if($("markPastAsDone"))
 if($("showAllMotifs"))$("showAllMotifs").onclick=showAllGridMotifs;
 if($("hideAllMotifs"))$("hideAllMotifs").onclick=hideAllGridMotifs;
 if($("openResetTimesheet"))$("openResetTimesheet").onclick=openResetTimesheetModal;

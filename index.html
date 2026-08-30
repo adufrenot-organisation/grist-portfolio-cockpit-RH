@@ -1,10 +1,10 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RH Capacité — Cockpit V6.15</title><link rel="stylesheet" href="styles.css"><script src="https://docs.getgrist.com/grist-plugin-api.js"></script></head><body>
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RH Capacité — Cockpit V6.17</title><link rel="stylesheet" href="styles.css"><script src="https://docs.getgrist.com/grist-plugin-api.js"></script></head><body>
 <div id="app"><aside class="sidebar">
 <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Déplier le menu" title="Déplier le menu">
   <span class="sidebar-toggle-icon">›</span>
 </button>
-<div class="brand"><div class="mark">RH</div><div><strong>Capacité</strong><small>Cockpit RH</small></div></div><nav><button class="nav-item active" data-view="pilotage" aria-label="Cockpit" data-tooltip="Cockpit"><span class="nav-icon" aria-hidden="true">▥</span><span class="nav-text">Cockpit</span></button><button class="nav-item" data-view="previsionnel" aria-label="Prévisionnel" data-tooltip="Prévisionnel"><span class="nav-icon" aria-hidden="true">◷</span><span class="nav-text">Prévisionnel</span></button><button class="nav-item" data-view="saisie" aria-label="Feuille de présence" data-tooltip="Feuille de présence"><span class="nav-icon" aria-hidden="true">▦</span><span class="nav-text">Feuille de présence</span></button><button class="nav-item" data-view="imports" aria-label="Imports" data-tooltip="Imports"><span class="nav-icon" aria-hidden="true">⇩</span><span class="nav-text">Imports</span></button><button class="nav-item" data-view="alertes" aria-label="Alertes" data-tooltip="Alertes"><span class="nav-icon" aria-hidden="true">!</span><span class="nav-text">Alertes</span></button><button class="nav-item" data-view="rapports" aria-label="Rapports" data-tooltip="Rapports"><span class="nav-icon" aria-hidden="true">≡</span><span class="nav-text">Rapports</span></button></nav><div class="sidebar-sep"></div><div class="sidebar-label">Administration</div><div class="admin-hint">Le paramétrage reste dans le widget Administration séparé.</div><div class="sidebar-footer"><div class="sidebar-status"><div class="sync" id="sync">Connexion…</div><div class="cockpit-version" id="cockpitVersion">Cockpit RH · V6.15</div></div><div class="app-version" id="appVersion">Cockpit RH · V6.15</div></div></aside>
-<main class="main"><header class="topbar"><div><h1 id="title">Pilotage</h1><p id="subtitle">Disponibilité et prévisionnel</p></div><button class="btn secondary" id="refresh">Actualiser</button></header>
+<div class="brand"><div class="mark">RH</div><div><strong>Capacité</strong><small>Cockpit RH</small></div></div><nav><button class="nav-item active" data-view="pilotage" aria-label="Cockpit" data-tooltip="Cockpit"><span class="nav-icon" aria-hidden="true">▥</span><span class="nav-text">Cockpit</span></button><button class="nav-item" data-view="previsionnel" aria-label="Planning" data-tooltip="Planning"><span class="nav-icon" aria-hidden="true">◷</span><span class="nav-text">Planning</span></button><button class="nav-item" data-view="saisie" aria-label="Feuille de présence" data-tooltip="Feuille de présence"><span class="nav-icon" aria-hidden="true">▦</span><span class="nav-text">Feuille de présence</span></button><button class="nav-item" data-view="imports" aria-label="Imports" data-tooltip="Imports"><span class="nav-icon" aria-hidden="true">⇩</span><span class="nav-text">Imports</span></button><button class="nav-item" data-view="alertes" aria-label="Alertes" data-tooltip="Alertes"><span class="nav-icon" aria-hidden="true">!</span><span class="nav-text">Alertes</span></button><button class="nav-item" data-view="rapports" aria-label="Rapports" data-tooltip="Rapports"><span class="nav-icon" aria-hidden="true">≡</span><span class="nav-text">Rapports</span></button></nav><div class="sidebar-sep"></div><div class="sidebar-label">Administration</div><div class="admin-hint">Le paramétrage reste dans le widget Administration séparé.</div><div class="sidebar-footer"><div class="sidebar-status"><div class="sync" id="sync">Connexion…</div><div class="cockpit-version" id="cockpitVersion">Cockpit RH · V6.17</div></div><div class="app-version" id="appVersion">Cockpit RH · V6.17</div></div></aside>
+<main class="main"><header class="topbar"><div><h1 id="title">Pilotage</h1><p id="subtitle">Disponibilité et état des présences</p></div><button class="btn secondary" id="refresh">Actualiser</button></header>
 <section class="view active" id="pilotage"><div class="toolbar card"><label>Du<input id="from" type="date"></label><label>Au<input id="to" type="date"></label><label>Ressource<select id="person"><option value="">Toute l'équipe</option></select></label><div class="chips" id="chips"></div></div>
 <div class="kpis">
 <div class="metric"><span class="metric-title">Taux de présence <button class="info-dot" type="button" aria-label="Calcul du taux de présence" data-tip="Présence équivalente ÷ jours-ressources travaillables × 100. P, TL, TE/TLE et FO comptent selon leur équivalent de présence. A compte comme absence ; les demi-journées valent 0,5. WE, F et les motifs exclus de la capacité ne sont pas au dénominateur.">ⓘ</button></span><strong id="presenceKpi">—</strong><small id="presenceSub"></small></div>
@@ -22,25 +22,29 @@
 <div class="dashboard-grid">
   <div class="card"><div class="section"><div><h2>Capacité disponible</h2><p>Évolution quotidienne et seuil CAP_MIN</p></div><span class="badge" id="scope">Équipe</span></div><svg id="chart" viewBox="0 0 900 300"></svg><div class="chart-legend"><span><i class="legend-line capacity"></i>Capacité</span><span><i class="legend-line threshold"></i>Seuil CAP_MIN</span></div></div>
   <div class="card"><div class="section"><div><h2>Répartition de l'activité</h2><p>Présentiel · Télétravail · Absence · Formation</p></div></div><div id="activityMix" class="activity-mix"></div><div class="bars compact-bars" id="bars"></div></div>
-  <div class="card"><div class="section"><div><h2>Prévisionnel vs Réalisé</h2><p>Capacité moyenne par semaine</p></div></div><svg id="forecastRealChart" viewBox="0 0 900 300"></svg><div class="chart-legend"><span><i class="legend-line forecast"></i>Prévisionnel / Confirmé</span><span><i class="legend-line realized"></i>Réalisé</span></div></div>
+  <div class="card"><div class="section"><div><h2>Ouvert vs verrouillé</h2><p>Capacité moyenne par semaine · le verrou détermine le réalisé</p></div></div><svg id="forecastRealChart" viewBox="0 0 900 300"></svg><div class="chart-legend"><span><i class="legend-line forecast"></i>🔓 Ouvert</span><span><i class="legend-line realized"></i>🔒 Verrouillé · réalisé</span></div></div>
   <div class="card attention-card"><div class="section"><div><h2>Points d'attention</h2><p>Synthèse opérationnelle de la sélection</p></div><span class="badge" id="attentionCount">0</span></div><div id="attentionList" class="attention-list"></div></div>
 </div></section>
 <section class="view" id="previsionnel">
-      <div class="card bulk-status-card">
-        <div class="section">
-          <div>
-            <h2>Régularisation des jours passés</h2>
-            <p>Convertit en masse les saisies passées encore en Prévisionnel vers Réalisé.</p>
-          </div>
-          <span class="badge" id="pastForecastCount">0 à régulariser</span>
-        </div>
-        <div class="bulk-status-actions">
-          <button class="btn secondary" id="refreshPastForecast">Recompter</button>
-          <button class="btn" id="markPastAsDone">Passer les jours passés en Réalisé</button>
-        </div>
-        <div class="import-message" id="pastForecastMessage"></div>
+  <div class="card status-rule-card">
+    <div class="section">
+      <div>
+        <h2>État des présences</h2>
+        <p>Le statut est désormais automatique : aucune validation manuelle n'est nécessaire.</p>
       </div>
-<div class="card"><div class="section"><div><h2>Prévisionnel</h2><p>Vision des saisies futures et confirmées.</p></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Ressource</th><th>Motif</th><th>Statut</th><th>Commentaire</th></tr></thead><tbody id="forecastRows"></tbody></table></div></div></section>
+    </div>
+    <div class="lock-state-rule">
+      <div><span class="state-icon">🔓</span><strong>Ouvert</strong><small>Présence modifiable · planning en cours</small></div>
+      <span class="state-arrow">→</span>
+      <div><span class="state-icon">🔒</span><strong>Verrouillé</strong><small>Présence définitive · considérée réalisée</small></div>
+    </div>
+    <p class="state-note">Déverrouiller une période la fait automatiquement revenir à l'état ouvert.</p>
+  </div>
+  <div class="card">
+    <div class="section"><div><h2>Présences ouvertes</h2><p>Saisies non verrouillées à venir ou encore modifiables.</p></div></div>
+    <div class="table-wrap"><table><thead><tr><th>Date</th><th>Ressource</th><th>Motif</th><th>État</th><th>Commentaire</th></tr></thead><tbody id="forecastRows"></tbody></table></div>
+  </div>
+</section>
 <section class="view" id="saisie">
   <div class="mass-entry-head">
   <div class="card filter-card">
@@ -105,7 +109,7 @@
       <table class="mass-table"><thead id="massHead"></thead><tbody id="massBody"></tbody></table>
     </div>
     <div class="mass-footer">
-      <label>Statut<select id="massStatus"><option>Prévisionnel</option><option>Confirmé</option><option>Réalisé</option></select></label>
+      <div class="auto-state-hint"><span>🔓</span><span><strong>État automatique</strong><small>Les modifications enregistrées restent ouvertes jusqu’au verrouillage de la période.</small></span></div>
       <label class="comment-field">Commentaire<input id="massComment" placeholder="Commentaire optionnel"></label>
       <button class="btn" id="saveMass">Enregistrer les modifications</button>
       <div class="save-summary" id="saveSummary"></div>
@@ -131,20 +135,20 @@
 <div class="import-toolbar"><label>Fichier CSV<input id="csvFile" type="file" accept=".csv,text/csv"></label><button class="btn secondary" id="analyzeCsv">Analyser</button><button class="btn" id="importCsv" disabled>Importer</button><button class="btn reset-btn" id="resetCsv">Réinitialiser</button></div>
 <div class="import-info"><span>Valides <b id="csvValid">0</b></span><span>Nouvelles ressources <b id="csvNewResources">0</b></span><span>Créations <b id="csvCreates">0</b></span><span>Mises à jour <b id="csvUpdates">0</b></span><span>Erreurs <b id="csvErrors">0</b></span></div>
 <div id="csvMessage" class="import-message"></div>
-<div class="table-wrap import-preview-wrap"><table><thead><tr><th>Ligne</th><th>Ressource</th><th>Email</th><th>Équipe</th><th>Date</th><th>Motif</th><th>Statut</th><th>Action</th><th>Diagnostic</th></tr></thead><tbody id="csvPreview"></tbody></table></div>
+<div class="table-wrap import-preview-wrap"><table><thead><tr><th>Ligne</th><th>Ressource</th><th>Email</th><th>Équipe</th><th>Date</th><th>Motif</th><th>Action</th><th>Diagnostic</th></tr></thead><tbody id="csvPreview"></tbody></table></div>
 </div>
 </section>
-<section class="view" id="alertes"><div class="card"><div class="section"><div><h2>Alertes calculées</h2><p>Prévisionnel + confirmé</p></div></div><div class="alerts" id="allAlerts"></div></div></section><section class="view" id="rapports"><div class="card"><div class="section"><div><h2>Rapports</h2><p>Dernières saisies enregistrées.</p></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Ressource</th><th>Motif</th><th>Statut</th><th>Commentaire</th></tr></thead><tbody id="recent"></tbody></table></div></div></section></main></div><div class="toast" id="toast"></div><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<section class="view" id="alertes"><div class="card"><div class="section"><div><h2>Alertes calculées</h2><p>Calculées sur les présences ouvertes de la fenêtre à venir.</p></div></div><div class="alerts" id="allAlerts"></div></div></section><section class="view" id="rapports"><div class="card"><div class="section"><div><h2>Rapports</h2><p>Dernières saisies enregistrées.</p></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Ressource</th><th>Motif</th><th>État</th><th>Commentaire</th></tr></thead><tbody id="recent"></tbody></table></div></div></section></main></div><div class="toast" id="toast"></div><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <div class="modal-backdrop" id="periodLocksModal" hidden>
 <div class="modal-card lock-modal-card" role="dialog" aria-modal="true" aria-labelledby="periodLocksTitle">
   <div class="modal-head">
-    <div><h2 id="periodLocksTitle">Périodes verrouillées</h2><p>Une période verrouillée doit être déverrouillée manuellement avant toute modification.</p></div>
+    <div><h2 id="periodLocksTitle">Périodes verrouillées</h2><p>Une période verrouillée est considérée comme réalisée et doit être déverrouillée avant toute correction.</p></div>
     <button class="modal-close" id="closePeriodLocks" type="button">×</button>
   </div>
   <div class="modal-body">
     <div class="lock-readonly-warning" id="lockReadonlyWarning" hidden>Accès en lecture : vous ne pouvez ni verrouiller ni déverrouiller une période.</div>
     <div class="lock-create-panel">
-      <div class="section"><div><h3>Verrouiller une période</h3><p>Les dates de début et de fin sont incluses.</p></div></div>
+      <div class="section"><div><h3>Verrouiller une période</h3><p>Les dates incluses deviennent automatiquement réalisées et non modifiables.</p></div></div>
       <div class="lock-form">
         <label>Libellé<input id="lockLabel" placeholder="Ex. Clôture janvier 2026"></label>
         <label>Du<input id="lockFrom" type="date"></label>
@@ -154,7 +158,7 @@
       <div class="lock-create-actions"><button class="btn" id="createPeriodLock" type="button">Verrouiller la période</button></div><div class="lock-write-status" id="lockWriteStatus"></div>
     </div>
     <div class="lock-list-panel">
-      <div class="section"><div><h3>Périodes actuellement verrouillées</h3><p>Le déverrouillage conserve la ligne dans l'historique.</p></div><span class="badge" id="activeLockCount">0</span></div>
+      <div class="section"><div><h3>Périodes actuellement verrouillées</h3><p>Le déverrouillage remet automatiquement les présences concernées à l’état ouvert.</p></div><span class="badge" id="activeLockCount">0</span></div>
       <div id="periodLockList" class="lock-list"></div>
     </div>
   </div>
@@ -178,7 +182,7 @@
 <div class="init-motif-grid">
 <label>Motif jours ouvrés<select id="initWeekdayMotif"></select></label>
 <label>Motif week-end<select id="initWeekendMotif"></select></label>
-<label>Statut<select id="initCalendarStatus"><option>Prévisionnel</option><option>Confirmé</option><option>Réalisé</option></select></label>
+<div class="auto-state-hint compact-auto-state"><span>🔓</span><span><strong>État automatique</strong><small>Les dates créées sont ouvertes jusqu’au verrouillage.</small></span></div>
 </div>
 <label class="check compact init-preserve-holiday">
   <input id="initPreserveHolidays" type="checkbox" checked>

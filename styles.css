@@ -736,3 +736,28 @@ body.sidebar-collapsed .sidebar-footer{display:none!important}
 .kpi-status.info{background:#eef6ff;color:#245b91;border-color:#cfe3f5}
 .kpi-status.neutral{background:#f3f5f7;color:#667584;border-color:#e2e7eb}
 .metric.compact small{line-height:1.35}
+
+/* V6.16 — repères temporels du graphique de capacité */
+.x-axis-line,.x-axis-tick{stroke:#cbd5e1;stroke-width:1}
+.x-axis-label{font-size:10px;fill:#64748b}
+.chart-hover-point{fill:transparent;stroke:transparent;cursor:crosshair;pointer-events:all}
+.chart-hover-point:hover{fill:#2563eb;fill-opacity:.18;stroke:#2563eb;stroke-width:1.5}
+
+/* V6.17 — le verrou est la source de vérité de l'état des présences */
+.lock-state-rule{display:flex;align-items:center;gap:14px;padding:16px;border:1px solid #dbe5ea;border-radius:14px;background:#f8fbfc}
+.lock-state-rule>div{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.lock-state-rule .state-icon{font-size:20px}
+.lock-state-rule strong{display:block;color:#17384b}
+.lock-state-rule small{display:block;color:#6f7f89;margin-left:auto}
+.state-arrow{color:#78909c;font-size:20px;font-weight:800}
+.state-note{margin:10px 2px 0;color:#667985;font-size:12px}
+.presence-state{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:800;white-space:nowrap}
+.presence-state.open{background:#eef7ff;color:#27628f;border:1px solid #d3e8f7}
+.presence-state.locked{background:#edf8f0;color:#287148;border:1px solid #d1ead9}
+.auto-state-hint{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #d6e7ee;border-radius:10px;background:#f7fbfd;min-width:210px}
+.auto-state-hint>span:first-child{font-size:18px}
+.auto-state-hint strong,.auto-state-hint small{display:block}
+.auto-state-hint small{font-size:10px;color:#70818b;line-height:1.25}
+.compact-auto-state{min-width:0}
+.period-locked{box-shadow:inset 0 0 0 1px rgba(37,113,72,.12)}
+@media(max-width:760px){.lock-state-rule{align-items:stretch;flex-direction:column}.state-arrow{transform:rotate(90deg);align-self:center}.lock-state-rule small{margin-left:0}}

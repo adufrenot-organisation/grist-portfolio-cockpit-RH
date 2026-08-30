@@ -393,3 +393,36 @@ Modifications ajoutées :
 - taux de télétravail marqué comme indicateur informatif ;
 - ressources sous seuil avec statut `Aucun` / `À examiner` ;
 - alertes PRES_PHY calculées en pourcentage de l'effectif actif.
+
+
+## V6.16 — axe temporel du graphique Capacité
+- ajout d'un axe X avec dates au format JJ/MM ;
+- densité automatique d'environ 8 repères maximum ;
+- premier et dernier jours toujours repérés ;
+- tous les points quotidiens restent tracés ;
+- survol d'un point : date exacte et capacité en % ;
+- seuil CAP_MIN inchangé.
+
+
+## V6.17 — état automatique par verrouillage
+Le champ `Statut` n'est plus piloté par l'utilisateur.
+
+Règle métier :
+- 🔓 date ouverte = planning modifiable ;
+- 🔒 date couverte par un verrou actif = présence réalisée et définitive ;
+- déverrouillage = retour automatique à l'état ouvert, sauf si un autre verrou actif couvre encore la date.
+
+Compatibilité Grist :
+- le champ `Presences.Statut` est conservé pour ne pas casser le schéma existant ;
+- lors du verrouillage il est synchronisé vers `Réalisé` ;
+- lors du déverrouillage il est synchronisé vers `Prévisionnel` si la date n'est plus verrouillée ;
+- toutes les nouvelles saisies/imports ouverts sont écrits en `Prévisionnel`, mais ce champ n'est plus utilisé comme source de vérité.
+
+Interface :
+- suppression des sélecteurs Prévisionnel / Confirmé / Réalisé ;
+- suppression de la régularisation manuelle des jours passés ;
+- vue `Prévisionnel` renommée `Planning` ;
+- graphique remplacé par `Ouvert vs verrouillé` ;
+- rapports affichent l'état dérivé du verrou ;
+- imports CSV n'exigent plus la colonne `Statut` ;
+- alertes futures calculées uniquement sur les dates ouvertes.
