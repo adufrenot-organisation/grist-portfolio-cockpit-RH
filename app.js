@@ -1,4 +1,4 @@
-const APP_VERSION="V6.22";
+const APP_VERSION="V6.23";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -33,7 +33,7 @@ function lockDateString(v){try{return iso(v)}catch(_){return ""}}
 function lockForDate(ds){return activeLocks().find(l=>{const a=lockDateString(l.Date_Debut),b=lockDateString(l.Date_Fin);return a&&b&&ds>=a&&ds<=b})||null}
 function isDateLocked(v){const ds=typeof v==="string"?v:iso(v);return !!lockForDate(ds)}
 function presenceState(v){return isDateLocked(v)?"Réalisé":"Ouvert"}
-function presenceStateHtml(v){return isDateLocked(v)?'<span class="presence-state locked">🔒 Réalisé</span>':'<span class="presence-state open">🔓 Ouvert</span>'}
+function presenceStateHtml(v){return isDateLocked(v)?'<span class="presence-state locked">🔒 Réalisé</span>':'<span class="presence-state open">✏️ Ouvert</span>'}
 async function syncPresenceStatusForRange(from,to){
   if(!from||!to)return 0;
   const rows=(S.presence||[]).filter(r=>{const ds=iso(r.Date);return ds>=from&&ds<=to});

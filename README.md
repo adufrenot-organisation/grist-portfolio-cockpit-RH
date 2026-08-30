@@ -468,3 +468,8 @@ Interface :
 - le clic sur un onglet sensible affiche uniquement une carte de refus avec cadenas, sans contenu détaillé d'alerte ;
 - les onglets sensibles affichent un cadenas dans le menu pour les utilisateurs non autorisés ;
 - la sécurité des données reste à compléter par les ACL Grist si l'on veut empêcher également la lecture technique des tables sous-jacentes.
+
+## V6.23
+- état ouvert/modifiable représenté par ✏️ au lieu d'un cadenas ouvert ;
+- état verrouillé/réalisé conserve 🔒 ;
+- correction de la barre État automatique / Commentaire / Enregistrer pour éviter les chevauchements.

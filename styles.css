@@ -935,3 +935,25 @@ body.sidebar-collapsed .nav-lock{position:absolute;right:5px;top:5px;font-size:9
 .sensitive-access-body{padding:28px 34px 32px;color:#475569;font-size:15px;line-height:1.65}
 .sensitive-access-body p{margin:0 auto;max-width:490px}
 .sensitive-access-contact{margin:20px auto 0;max-width:490px;padding:15px 18px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;color:#334155;font-size:14px}
+
+/* V6.23 — barre basse feuille de présence */
+.mass-footer{
+  display:grid!important;
+  grid-template-columns:minmax(180px,220px) minmax(300px,1fr) auto!important;
+  align-items:end!important;
+  gap:14px!important;
+}
+.mass-footer .auto-state-hint{min-width:0!important;margin:0!important}
+.mass-footer .comment-field{min-width:0!important;width:auto!important;margin:0!important}
+.mass-footer .comment-field input{width:100%!important;box-sizing:border-box!important}
+.mass-footer #saveMass{white-space:nowrap!important;margin:0!important}
+.mass-footer .save-summary{grid-column:1/-1!important}
+@media(max-width:1000px){
+ .mass-footer{grid-template-columns:220px minmax(0,1fr)!important}
+ .mass-footer #saveMass{grid-column:1/-1!important;justify-self:end!important}
+}
+@media(max-width:700px){
+ .mass-footer{grid-template-columns:1fr!important}
+ .mass-footer #saveMass{grid-column:auto!important;justify-self:stretch!important}
+}
+/* Ouvert = modifiable : crayon. Verrouillé/réalisé conserve le cadenas. */
