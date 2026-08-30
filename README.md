@@ -439,3 +439,32 @@ Interface :
 - suppression de l'appel résiduel à `renderPastForecastCount()` ;
 - cette fonction avait été retirée en V6.17 avec la suppression de la régularisation manuelle des statuts ;
 - correction de l'erreur JavaScript qui affichait `Erreur de chargement` dans la barre latérale.
+
+
+## V6.20 — infobulles des KPI
+- bouton ⓘ agrandi et mieux contrasté ;
+- infobulle sombre opaque avec texte blanc ;
+- texte porté à 12 px avec interligne renforcé ;
+- largeur augmentée pour limiter les retours à la ligne ;
+- ombre et flèche plus visibles ;
+- priorité d'affichage renforcée au-dessus des cartes voisines ;
+- correction du positionnement sur les KPI situés aux extrémités ;
+- fonctionnement au survol et au focus clavier.
+
+
+## V6.21 — Alertes prévisionnelles annuelles
+- nouvel onglet `Alertes annuelles` avec sélection de l'année ;
+- projection par ressource : absences réalisées 🔒 + absences planifiées 🔓 ;
+- nouveau seuil `ABS_ANNUEL`, lu depuis `Parametres_Alertes` ;
+- valeurs de repli si le paramètre n'existe pas encore : orange 50 j, rouge 55 j ;
+- comptage annuel des jours franchissant CAP_MIN, PRES_PHY, TL_SIM et FO_SIM ;
+- synthèse des ressources en vigilance/critique.
+
+
+## V6.22 — accès admin ciblé sur les alertes
+- les onglets `Alertes` et `Alertes annuelles` sont réservés aux administrateurs ;
+- le contrôle réutilise la même règle que le module `ADMIN_RH` via `DROITS_MODULES` et autorise également le Owner Grist ;
+- un utilisateur non autorisé conserve tout le reste du Cockpit ;
+- le clic sur un onglet sensible affiche uniquement une carte de refus avec cadenas, sans contenu détaillé d'alerte ;
+- les onglets sensibles affichent un cadenas dans le menu pour les utilisateurs non autorisés ;
+- la sécurité des données reste à compléter par les ACL Grist si l'on veut empêcher également la lecture technique des tables sous-jacentes.

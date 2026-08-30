@@ -787,3 +787,151 @@ body.sidebar-collapsed .sidebar-footer{
 body.sidebar-collapsed .cockpit-version{
   display:none;
 }
+
+
+/* V6.20 — infobulles KPI : contraste, taille et lisibilité */
+#pilotage .metric,
+#pilotage .kpis,
+#pilotage .kpis-secondary{
+  overflow:visible;
+}
+#pilotage .metric{
+  position:relative;
+  z-index:1;
+}
+#pilotage .metric:has(.info-dot:hover),
+#pilotage .metric:has(.info-dot:focus-visible){
+  z-index:100;
+}
+#pilotage .info-dot{
+  position:relative!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:20px!important;
+  height:20px!important;
+  margin-left:3px!important;
+  padding:0!important;
+  border:1px solid #9fd6dc!important;
+  border-radius:50%!important;
+  background:#eef9fa!important;
+  color:#087d8f!important;
+  font-size:13px!important;
+  font-weight:900!important;
+  line-height:1!important;
+  cursor:help!important;
+  vertical-align:middle!important;
+  outline:none!important;
+}
+#pilotage .info-dot:hover,
+#pilotage .info-dot:focus-visible{
+  background:#dff4f6!important;
+  border-color:#5ab9c4!important;
+  color:#075e6d!important;
+  box-shadow:0 0 0 3px rgba(8,145,178,.12)!important;
+}
+#pilotage .info-dot::after{
+  content:attr(data-tip)!important;
+  position:absolute!important;
+  z-index:10000!important;
+  left:50%!important;
+  top:auto!important;
+  bottom:calc(100% + 12px)!important;
+  transform:translateX(-50%)!important;
+  box-sizing:border-box!important;
+  width:340px!important;
+  max-width:min(340px,78vw)!important;
+  padding:13px 15px!important;
+  border:1px solid rgba(255,255,255,.16)!important;
+  border-radius:11px!important;
+  background:#102f43!important;
+  color:#ffffff!important;
+  font-size:12px!important;
+  font-weight:500!important;
+  line-height:1.55!important;
+  letter-spacing:0!important;
+  text-align:left!important;
+  white-space:normal!important;
+  box-shadow:0 12px 32px rgba(10,35,52,.32)!important;
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+  transition:opacity .12s ease,visibility .12s ease!important;
+}
+#pilotage .info-dot::before{
+  content:""!important;
+  position:absolute!important;
+  z-index:10001!important;
+  left:50%!important;
+  top:auto!important;
+  bottom:calc(100% + 8px)!important;
+  transform:translateX(-50%) rotate(45deg)!important;
+  width:9px!important;
+  height:9px!important;
+  background:#102f43!important;
+  border:0!important;
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+  transition:opacity .12s ease,visibility .12s ease!important;
+}
+#pilotage .info-dot:hover::after,
+#pilotage .info-dot:hover::before,
+#pilotage .info-dot:focus-visible::after,
+#pilotage .info-dot:focus-visible::before{
+  opacity:1!important;
+  visibility:visible!important;
+}
+/* Évite que les infobulles des KPI situés aux extrémités sortent de l'écran */
+#pilotage .metric:first-child .info-dot::after{
+  left:0!important;
+  transform:none!important;
+}
+#pilotage .metric:first-child .info-dot::before{
+  left:8px!important;
+  transform:rotate(45deg)!important;
+}
+#pilotage .metric:last-child .info-dot::after{
+  left:auto!important;
+  right:0!important;
+  transform:none!important;
+}
+#pilotage .metric:last-child .info-dot::before{
+  left:auto!important;
+  right:8px!important;
+  transform:rotate(45deg)!important;
+}
+@media(max-width:700px){
+  #pilotage .info-dot::after{
+    width:280px!important;
+    max-width:74vw!important;
+    font-size:12px!important;
+  }
+}
+
+/* V6.21 — alertes prévisionnelles annuelles */
+.annual-toolbar{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:14px}
+.annual-toolbar h2{margin:0 0 5px}.annual-toolbar p{margin:0;color:var(--muted);font-size:12px}.annual-toolbar label{min-width:130px}
+.annual-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+.annual-absence-card{margin-bottom:14px}.annual-code{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.presence-state.annual-red{background:#fff0f0;color:#b42318;border-color:#fecaca}
+.presence-state.annual-orange{background:#fff7e8;color:#9a5b00;border-color:#f7d79b}
+.presence-state.annual-green{background:#edf8f0;color:#287148;border-color:#d1ead9}
+#annualAbsenceRows td:not(:first-child),#annualDailyRows td:not(:first-child){white-space:nowrap}
+@media(max-width:1050px){.annual-kpis{grid-template-columns:1fr 1fr}}
+@media(max-width:650px){.annual-kpis{grid-template-columns:1fr}.annual-toolbar{align-items:stretch;flex-direction:column}}
+
+/* V6.22 — protection ciblée des deux onglets Alertes */
+.sensitive-nav{position:relative}
+.nav-lock{margin-left:auto;font-size:10px;opacity:.82}
+.sensitive-nav.sensitive-allowed .nav-lock{display:none}
+body.sidebar-collapsed .nav-lock{position:absolute;right:5px;top:5px;font-size:9px}
+.sensitive-access-shell{min-height:calc(100vh - 140px);display:flex;align-items:center;justify-content:center;padding:26px}
+.sensitive-access-card{width:min(620px,100%);overflow:hidden;text-align:center;background:#fff;border:1px solid rgba(148,163,184,.28);border-radius:24px;box-shadow:0 28px 80px rgba(30,41,59,.14)}
+.sensitive-access-top{padding:38px 34px 30px;background:linear-gradient(135deg,#111827,#28385f)}
+.sensitive-access-lock{width:72px;height:72px;border-radius:20px;margin:0 auto 20px;display:grid;place-items:center;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);font-size:34px}
+.sensitive-access-top h2{margin:0;color:#fff;font-size:29px}
+.sensitive-access-top p{margin:12px auto 0;max-width:470px;color:#cbd5e1;font-size:15px;line-height:1.6}
+.sensitive-access-body{padding:28px 34px 32px;color:#475569;font-size:15px;line-height:1.65}
+.sensitive-access-body p{margin:0 auto;max-width:490px}
+.sensitive-access-contact{margin:20px auto 0;max-width:490px;padding:15px 18px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;color:#334155;font-size:14px}

@@ -1,4 +1,4 @@
-const APP_VERSION="V6.19";
+const APP_VERSION="V6.22";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -19,7 +19,7 @@ function gristRows(data, tableName="") {
   }
   return rows;
 }
-const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",halfMonth:(new Date().getDate()<=15?1:2)};
+const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAdminChecked:false,halfMonth:(new Date().getDate()<=15?1:2)};
 const $=id=>document.getElementById(id),num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d,esc=(s="")=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const date=v=>typeof v==="number"?new Date(v*1000):Array.isArray(v)&&v[0]==="D"?new Date(v[1]*1000):new Date(v);
 const iso=v=>{const d=date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
@@ -200,7 +200,7 @@ async function load(){
   }
 }
 function activeTeam(){return S.team.filter(x=>x.actif!==false)}
-function render(){const opts=activeTeam().sort((a,b)=>String(a.nom).localeCompare(String(b.nom))).map(x=>`<option value="${x.id}">${esc(x.nom)}</option>`).join("");$("person").innerHTML='<option value="">Toute l’équipe</option>'+opts;chips();pilotage();renderRecent();alerts();renderForecast();renderMassFilters();renderMassMotifs();renderMotifInfo();renderMassCalendar();renderLockBadge()}
+function render(){const opts=activeTeam().sort((a,b)=>String(a.nom).localeCompare(String(b.nom))).map(x=>`<option value="${x.id}">${esc(x.nom)}</option>`).join("");$("person").innerHTML='<option value="">Toute l’équipe</option>'+opts;chips();pilotage();renderRecent();alerts();renderForecast();setupAnnualYears();renderAnnualAlerts();renderMassFilters();renderMassMotifs();renderMotifInfo();renderMassCalendar();renderLockBadge()}
 function chips(){$("chips").innerHTML=S.motifs.filter(x=>x.Actif!==false&&!["F","WE"].includes(x.Code)).map(x=>`<button class="chip ${S.visible.has(x.id)?"on":"off"}" data-id="${x.id}">${esc(x.Code)}</button>`).join("");$("chips").querySelectorAll("button").forEach(b=>b.onclick=()=>{const id=Number(b.dataset.id);S.visible.has(id)?S.visible.delete(id):S.visible.add(id);chips();pilotage()})}
 function selected(){const a=new Date($("from").value+"T00:00:00"),b=new Date($("to").value+"T23:59:59"),pid=Number($("person").value||0);return S.presence.filter(x=>{const d=date(x.Date);return d>=a&&d<=b&&(!pid||x.Ressource===pid)&&S.visible.has(x.Motif)})}
 function paramByCode(code){return S.params.find(p=>p.Code_Alerte===code&&p.Actif!==false)}
@@ -382,8 +382,76 @@ function compute(){
   });
   return out.sort((a,b)=>(a.s==="red"?0:1)-(b.s==="red"?0:1))
 }
+
+function annualAbsenceParam(){
+  const p=paramByCode("ABS_ANNUEL");
+  return p||{Code_Alerte:"ABS_ANNUEL",Libelle:"Absence annuelle individuelle",Seuil_Orange:50,Seuil_Rouge:55,Unite:"jours",Sens:"MAX",Actif:true,Fenetre_Jours:365}
+}
+function annualYearRows(year){
+  const a=`${year}-01-01`,b=`${year}-12-31`;
+  return S.presence.filter(r=>{const ds=iso(r.Date);return ds>=a&&ds<=b})
+}
+function annualDailyValue(code,day,team){
+  if(code==="CAP_MIN"){
+    let pr=0,w=0;day.forEach(r=>{const m=motif(r.Motif);if(m&&m.Compte_Capacite!==false&&!["WE","F"].includes(m.Code)){w++;pr+=num(m.Presence_Equivalent)}});
+    return w?pr/w*100:null
+  }
+  if(code==="PRES_PHY")return day.length?day.filter(r=>motif(r.Motif)?.Code==="P").length/Math.max(1,team.length)*100:null;
+  if(code==="TL_SIM")return day.length?day.filter(r=>["TL","TE","TLE"].includes(motif(r.Motif)?.Code)).length/Math.max(1,team.length)*100:null;
+  if(code==="FO_SIM")return day.length?day.filter(r=>motif(r.Motif)?.Code==="FO").length/Math.max(1,team.length)*100:null;
+  return null
+}
+function annualDailyStats(rr){
+  const team=activeTeam(),by={};rr.forEach(r=>(by[iso(r.Date)]??=[]).push(r));
+  return ["CAP_MIN","PRES_PHY","TL_SIM","FO_SIM"].map(code=>{
+    let p=code==="PRES_PHY"?physicalParam():paramByCode(code);
+    if(!p||p.Actif===false)return null;
+    let orange=0,red=0;
+    Object.values(by).forEach(day=>{
+      const v=annualDailyValue(code,day,team);if(v===null)return;
+      const s=severity(p,v);if(s==="red")red++;else if(s==="orange")orange++
+    });
+    return {code,p,orange,red,total:orange+red}
+  }).filter(Boolean)
+}
+function annualStateBadge(s){
+  return s==="red"?'<span class="presence-state annual-red">🔴 Critique</span>':s==="orange"?'<span class="presence-state annual-orange">🟠 Vigilance</span>':'<span class="presence-state annual-green">🟢 Normal</span>'
+}
+function setupAnnualYears(){
+  const el=$("annualAlertYear");if(!el)return;
+  const years=new Set([new Date().getFullYear()]);
+  S.presence.forEach(r=>{const d=date(r.Date);if(!Number.isNaN(d.getTime()))years.add(d.getFullYear())});
+  const current=Number(el.value)||new Date().getFullYear();
+  el.innerHTML=[...years].sort((a,b)=>b-a).map(y=>`<option value="${y}">${y}</option>`).join("");
+  el.value=[...el.options].some(o=>Number(o.value)===current)?String(current):el.options[0]?.value||String(new Date().getFullYear())
+}
+function renderAnnualAlerts(){
+  if(!S.alertsAdmin){if($("annualAbsenceRows"))$("annualAbsenceRows").innerHTML="";if($("annualDailyRows"))$("annualDailyRows").innerHTML="";return}
+  const year=Number($("annualAlertYear")?.value)||new Date().getFullYear(),rr=annualYearRows(year),p=annualAbsenceParam(),team=activeTeam();
+  const orange=num(p.Seuil_Orange,50),red=num(p.Seuil_Rouge,55);
+  if($("annualAbsenceThresholdInfo"))$("annualAbsenceThresholdInfo").textContent=`ABS_ANNUEL · Orange ≥ ${orange.toFixed(1)} jours · Rouge ≥ ${red.toFixed(1)} jours`;
+  let critical=0,warning=0;
+  const rows=team.map(pe=>{
+    let done=0,planned=0;
+    rr.filter(r=>r.Ressource===pe.id).forEach(r=>{
+      const a=num(motif(r.Motif)?.Absence_Equivalent);
+      if(isDateLocked(iso(r.Date)))done+=a;else planned+=a
+    });
+    const total=done+planned,s=severity(p,total)||"green";
+    if(s==="red")critical++;else if(s==="orange")warning++;
+    return {pe,done,planned,total,s}
+  }).sort((a,b)=>({red:0,orange:1,green:2}[a.s]-{red:0,orange:1,green:2}[b.s])||(b.total-a.total));
+  if($("annualCritical"))$("annualCritical").textContent=critical;
+  if($("annualWarning"))$("annualWarning").textContent=warning;
+  if($("annualAbsenceRows"))$("annualAbsenceRows").innerHTML=rows.length?rows.map(x=>`<tr><td><strong>${esc(x.pe.nom||"")}</strong></td><td>${x.done.toFixed(1)}</td><td>${x.planned.toFixed(1)}</td><td><strong>${x.total.toFixed(1)}</strong></td><td>${orange.toFixed(1)}</td><td>${red.toFixed(1)}</td><td>${annualStateBadge(x.s)}</td></tr>`).join(""):'<tr><td colspan="7" class="empty">Aucune ressource active.</td></tr>';
+  const daily=annualDailyStats(rr);
+  const cap=daily.find(x=>x.code==="CAP_MIN"),tl=daily.find(x=>x.code==="TL_SIM");
+  if($("annualCapDays"))$("annualCapDays").textContent=cap?.total||0;
+  if($("annualTlDays"))$("annualTlDays").textContent=tl?.total||0;
+  if($("annualDailyRows"))$("annualDailyRows").innerHTML=daily.length?daily.map(x=>`<tr><td><strong>${esc(x.p.Libelle||x.code)}</strong><small class="annual-code">${x.code}</small></td><td>${num(x.p.Seuil_Orange).toFixed(1)} ${esc(x.p.Unite||"")}</td><td>${num(x.p.Seuil_Rouge).toFixed(1)} ${esc(x.p.Unite||"")}</td><td>${x.orange}</td><td>${x.red}</td><td><strong>${x.total}</strong></td></tr>`).join(""):'<tr><td colspan="6" class="empty">Aucun seuil journalier actif.</td></tr>'
+}
 function list(el,a){el.innerHTML=a.length?a.map(x=>`<div class="alert ${x.s}"><strong>${x.s==="red"?"Critique":"Vigilance"} · ${esc(x.l)}</strong><small>${x.dt?x.dt+" · ":""}${Number(x.v).toFixed(1)} ${esc(x.u)}</small></div>`).join(""):'<div class="empty">Aucune alerte</div>'}
-function alerts(){S.alerts=compute();list($("allAlerts"),S.alerts)}
+function alerts(){S.alerts=compute();if(S.alertsAdmin&&$("allAlerts"))list($("allAlerts"),S.alerts);else if($("allAlerts"))$("allAlerts").innerHTML=""}
 function renderRecent(){const el=$("recent");if(!el)return;const rr=S.presence.slice().sort((a,b)=>date(b.Date)-date(a.Date)).slice(0,30);el.innerHTML=rr.map(r=>`<tr><td>${date(r.Date).toLocaleDateString("fr-FR")}</td><td>${esc(resource(r.Ressource)?.nom||"")}</td><td>${esc(motif(r.Motif)?.Code||"")}</td><td>${presenceStateHtml(iso(r.Date))}</td><td>${esc(r.Commentaire||"")}</td></tr>`).join("")}
 
 function teamRef(id){return S.teams.find(x=>x.id===Number(id))}
@@ -958,17 +1026,64 @@ function presenceContext(){
   return {module:"Cockpit RH",context:labels[view]||"Cockpit RH",contextId:""};
 }
 
-function nav(){document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));b.classList.add("active");window.PmoPresence?.touch?.();document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));$(b.dataset.view).classList.add("active");const t={
+
+async function checkSensitiveAlertsAccess(){
+  try{
+    if(!window.PmoAccess?.check){
+      S.alertsAdmin=false;S.alertsAdminChecked=true;return false
+    }
+    // On réutilise exactement le droit du module Administration RH :
+    // Owner Grist ou profil autorisé sur ADMIN_RH = accès aux onglets sensibles.
+    const result=await window.PmoAccess.check({module:"ADMIN_RH",label:"Administration RH"});
+    S.alertsAdmin=!!result?.allowed;
+    S.alertsAdminChecked=true;
+    updateSensitiveNavState();
+    if(S.alertsAdmin){if($("allAlerts"))list($("allAlerts"),S.alerts||[]);renderAnnualAlerts()}
+    return S.alertsAdmin
+  }catch(e){
+    console.warn("Contrôle accès alertes",e);
+    S.alertsAdmin=false;S.alertsAdminChecked=true;updateSensitiveNavState();return false
+  }
+}
+function updateSensitiveNavState(){
+  document.querySelectorAll(".sensitive-nav").forEach(b=>{
+    b.classList.toggle("sensitive-allowed",!!S.alertsAdmin);
+    const lock=b.querySelector(".nav-lock");
+    if(lock)lock.textContent=S.alertsAdmin?"":"🔒";
+    b.title=S.alertsAdmin?"Accès administrateur":"Réservé aux administrateurs RH"
+  })
+}
+function sensitiveViewAllowed(view){return !["alertes","alertesAnnuelles"].includes(view)||S.alertsAdmin}
+function nav(){
+  document.querySelectorAll(".nav-item").forEach(b=>b.onclick=async()=>{
+    document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    window.PmoPresence?.touch?.();
+    document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+
+    const requested=b.dataset.view;
+    const sensitive=["alertes","alertesAnnuelles"].includes(requested);
+    if(sensitive&&!S.alertsAdminChecked)await checkSensitiveAlertsAccess();
+
+    const target=sensitiveViewAllowed(requested)?requested:"alertsRestricted";
+    $(target)?.classList.add("active");
+
+    const t={
       pilotage:["Cockpit RH","Disponibilité, capacité et alertes sur les présences ouvertes"],
       previsionnel:["Planning","Présences ouvertes et périodes réalisées par verrouillage"],
       saisie:["Feuille de présence","Saisie rapide des présences et absences pour plusieurs ressources"],
       imports:["Imports","Importez des calendriers Excel ou CSV dans Grist"],
+      alertesAnnuelles:["Alertes annuelles","Projection annuelle des absences et franchissements de seuils"],
       alertes:["Alertes","Alertes calculées sur les présences ouvertes selon les seuils configurés"],
       rapports:["Rapports","Synthèse des dernières saisies enregistrées"]
     };
-    $("title").textContent=t[b.dataset.view][0];
-    $("subtitle").textContent=t[b.dataset.view][1];if(b.dataset.view==="saisie")renderMassCalendar()})}
-defaults();initSidebar();nav();["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
+    $("title").textContent=sensitive&&!S.alertsAdmin?"Accès restreint":t[requested][0];
+    $("subtitle").textContent=sensitive&&!S.alertsAdmin?"Onglet réservé aux administrateurs RH":t[requested][1];
+    if(requested==="saisie")renderMassCalendar();
+    if(requested==="alertesAnnuelles"&&S.alertsAdmin)renderAnnualAlerts()
+  })
+}
+defaults();initSidebar();nav();updateSensitiveNavState();checkSensitiveAlertsAccess();if($("annualAlertYear"))$("annualAlertYear").onchange=renderAnnualAlerts;["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
 $("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=previousHalfMonth;$("nextMonth").onclick=nextHalfMonth;$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
 $("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});
 $("resetCsv").onclick=resetCsvImport;csvSetup();
