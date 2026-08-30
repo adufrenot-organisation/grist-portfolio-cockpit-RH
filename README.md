@@ -426,3 +426,10 @@ Interface :
 - rapports affichent l'état dérivé du verrou ;
 - imports CSV n'exigent plus la colonne `Statut` ;
 - alertes futures calculées uniquement sur les dates ouvertes.
+
+
+## V6.18 — version du Cockpit dans le menu
+- suppression de l'affichage en double de la version ;
+- conservation d'une seule ligne `Cockpit RH · V6.18` ;
+- remontée visuelle de la version avec davantage de marge sous le footer ;
+- version masquée lorsque le menu est replié.

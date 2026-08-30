@@ -761,3 +761,29 @@ body.sidebar-collapsed .sidebar-footer{display:none!important}
 .compact-auto-state{min-width:0}
 .period-locked{box-shadow:inset 0 0 0 1px rgba(37,113,72,.12)}
 @media(max-width:760px){.lock-state-rule{align-items:stretch;flex-direction:column}.state-arrow{transform:rotate(90deg);align-self:center}.lock-state-rule small{margin-left:0}}
+
+
+/* V6.18 — version unique et mieux positionnée dans le menu */
+.sidebar-footer{
+  margin-top:auto;
+  padding:14px 14px 24px;
+}
+.sidebar-status{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.cockpit-version{
+  margin:0;
+  padding:0;
+  line-height:1.2;
+}
+.app-version{
+  display:none!important;
+}
+body.sidebar-collapsed .sidebar-footer{
+  padding:12px 8px 20px;
+}
+body.sidebar-collapsed .cockpit-version{
+  display:none;
+}
