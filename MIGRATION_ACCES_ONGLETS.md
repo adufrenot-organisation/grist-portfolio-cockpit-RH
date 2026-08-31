@@ -2,12 +2,15 @@
 
 ## Principe
 
-Deux niveaux de contrôle sont appliqués :
+Les deux onglets sensibles sont désormais pilotés **exclusivement** par `ACCES_ONGLETS`.
 
-1. **Droit module / Admin RH** : le contrôle existant `ADMIN_RH` reste prioritaire.
-2. **Délégation nominative d'onglet** : un utilisateur non-admin peut ouvrir uniquement l'onglet `Alertes` s'il possède une ligne active dans `ACCES_ONGLETS`.
+Le statut Owner Grist ou Admin RH ne donne plus automatiquement accès à ces deux onglets.
 
-`Alertes annuelles` reste réservé aux administrateurs RH dans cette version.
+Codes à utiliser :
+- `ALERTES` pour l'onglet Alertes opérationnelles ;
+- `ALERTES_ANNUELLES` pour l'onglet Alertes annuelles.
+
+Chaque utilisateur, y compris un administrateur, doit disposer de la ligne active correspondante s'il doit ouvrir l'onglet.
 
 ## Table Grist à créer : `ACCES_ONGLETS`
 
@@ -36,7 +39,10 @@ Le widget accepte aussi les alias techniques suivants pour faciliter une migrati
 
 ## Règle d'accès
 
-- Owner Grist / Admin RH : accès à `Alertes` + `Alertes annuelles`.
-- Non-admin avec ligne `COCKPIT_RH / ALERTES / Team / Actif=true` : accès à `Alertes` uniquement.
-- Non-admin sans ligne active : accès refusé à `Alertes`.
-- Une délégation d'onglet ne remplace pas les ACL Grist : les ACL restent la sécurité des données.
+Pour chaque onglet :
+- ligne active `COCKPIT_RH / <CODE_ONGLET> / Team / Actif=true` : accès autorisé ;
+- aucune ligne active correspondante : accès refusé.
+
+Les droits sont indépendants : une personne peut avoir `ALERTES` sans `ALERTES_ANNUELLES`, l'inverse, les deux, ou aucun.
+
+Les ACL Grist restent la sécurité réelle des données.

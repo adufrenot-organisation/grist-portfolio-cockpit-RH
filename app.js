@@ -1,4 +1,4 @@
-const APP_VERSION="V6.25";
+const APP_VERSION="V6.26";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -19,7 +19,7 @@ function gristRows(data, tableName="") {
   }
   return rows;
 }
-const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAllowed:false,alertsAdminChecked:false,alertAccessReason:"",halfMonth:(new Date().getDate()<=15?1:2)};
+const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAllowed:false,annualAlertsAllowed:false,alertsAdminChecked:false,alertAccessReason:"",halfMonth:(new Date().getDate()<=15?1:2)};
 const $=id=>document.getElementById(id),num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d,esc=(s="")=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const date=v=>typeof v==="number"?new Date(v*1000):Array.isArray(v)&&v[0]==="D"?new Date(v[1]*1000):new Date(v);
 const iso=v=>{const d=date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
@@ -1057,7 +1057,7 @@ const accessFlag=(v,d=true)=>{
 function teamEmail(r){return String(r?.Email??r?.email??r?.EMAIL??r?.Mail??r?.Utilisateur_Email??"").trim().toLowerCase()}
 function teamName(r){return String(r?.Nom??r?.nom??r?.Nom_Ressource??r?.Name??r?.name??"").trim()}
 function rowRefValue(row,fields){for(const f of fields){if(row&&row[f]!==undefined&&row[f]!==null&&row[f]!=="")return row[f]}return null}
-async function delegatedAlertAccess(){
+async function delegatedTabAccess(tabCode){
   const tables=await grist.docApi.listTables();
   if(!tables.includes(TAB_ACCESS_TABLE))return {allowed:false,reason:`Table ${TAB_ACCESS_TABLE} absente`};
 
@@ -1088,7 +1088,7 @@ async function delegatedAlertAccess(){
     if(!accessFlag(rowRefValue(r,["Actif","Active","Enabled"]),true))return false;
 
     const tab=rowRefValue(r,["Onglet","Code_Onglet","Onglet_Code","Tab","Vue"]);
-    if(normAccess(tab)!==TAB_ACCESS_ALERTS)return false;
+    if(normAccess(tab)!==normAccess(tabCode))return false;
 
     const mod=rowRefValue(r,["Module","Module_Code","Code_Module","Acces_Module"]);
     const moduleOk=normAccess(mod)===TAB_ACCESS_MODULE || (Number.isFinite(Number(mod))&&moduleRefIds.has(Number(mod)));
@@ -1101,33 +1101,29 @@ async function delegatedAlertAccess(){
     return !!target && [normAccess(email),normAccess(teamName(me))].includes(target)
   });
 
-  return {allowed,reason:allowed?"Délégation ACCES_ONGLETS active":"Aucune délégation ALERTES active",teamId:me.id}
+  return {allowed,reason:allowed?"Délégation ACCES_ONGLETS active":`Aucune délégation ${tabCode} active`,teamId:me.id}
 }
 
 async function checkSensitiveAlertsAccess(){
   try{
-    // Niveau 1 : droit administrateur RH existant (Owner inclus via PmoAccess).
-    const adminResult=window.PmoAccess?.check
-      ? await window.PmoAccess.check({module:"ADMIN_RH",label:"Administration RH"})
-      : {allowed:false};
+    // V6.26 : les deux onglets Alertes sont pilotés exclusivement par ACCES_ONGLETS.
+    // Le statut Admin RH / Owner n'accorde plus d'accès implicite.
+    S.alertsAdmin=false;
+    const operational=await delegatedTabAccess("ALERTES");
+    const annual=await delegatedTabAccess("ALERTES_ANNUELLES");
 
-    S.alertsAdmin=!!adminResult?.allowed;
-
-    // Niveau 2 : délégation nominative pour l'onglet Alertes uniquement.
-    let delegated={allowed:false,reason:""};
-    if(!S.alertsAdmin)delegated=await delegatedAlertAccess();
-
-    S.alertsAllowed=S.alertsAdmin||!!delegated.allowed;
-    S.alertAccessReason=S.alertsAdmin?"Administrateur RH":delegated.reason||"Accès non autorisé";
+    S.alertsAllowed=!!operational.allowed;
+    S.annualAlertsAllowed=!!annual.allowed;
+    S.alertAccessReason=operational.reason||"Accès non autorisé";
     S.alertsAdminChecked=true;
     updateSensitiveNavState();
 
     if(S.alertsAllowed&&$("allAlerts"))list($("allAlerts"),S.alerts||[]);
-    if(S.alertsAdmin)renderAnnualAlerts();
-    return S.alertsAllowed
+    if(S.annualAlertsAllowed)renderAnnualAlerts();
+    return S.alertsAllowed||S.annualAlertsAllowed
   }catch(e){
-    console.warn("Contrôle accès alertes",e);
-    S.alertsAdmin=false;S.alertsAllowed=false;S.alertsAdminChecked=true;
+    console.warn("Contrôle accès onglets alertes",e);
+    S.alertsAdmin=false;S.alertsAllowed=false;S.annualAlertsAllowed=false;S.alertsAdminChecked=true;
     S.alertAccessReason="Erreur de contrôle d’accès";
     updateSensitiveNavState();return false
   }
@@ -1135,20 +1131,16 @@ async function checkSensitiveAlertsAccess(){
 function updateSensitiveNavState(){
   document.querySelectorAll(".sensitive-nav").forEach(b=>{
     const view=b.dataset.view;
-    const allowed=view==="alertes"?S.alertsAllowed:S.alertsAdmin;
+    const allowed=view==="alertes"?S.alertsAllowed:view==="alertesAnnuelles"?S.annualAlertsAllowed:true;
     b.classList.toggle("sensitive-allowed",!!allowed);
     const lock=b.querySelector(".nav-lock");
     if(lock)lock.textContent=allowed?"":"🔒";
-    if(view==="alertes"){
-      b.title=allowed?(S.alertsAdmin?"Accès administrateur RH":"Accès délégué à l’onglet Alertes"):"Accès soumis aux droits RH / ACCES_ONGLETS"
-    }else{
-      b.title=allowed?"Accès administrateur RH":"Réservé aux administrateurs RH"
-    }
+    b.title=allowed?"Accès autorisé via ACCES_ONGLETS":"Accès soumis à ACCES_ONGLETS"
   })
 }
 function sensitiveViewAllowed(view){
   if(view==="alertes")return !!S.alertsAllowed;
-  if(view==="alertesAnnuelles")return !!S.alertsAdmin;
+  if(view==="alertesAnnuelles")return !!S.annualAlertsAllowed;
   return true
 }
 function nav(){
@@ -1178,7 +1170,7 @@ function nav(){
     $("title").textContent=sensitive&&!allowed?"Accès restreint":t[requested][0];
     $("subtitle").textContent=sensitive&&!allowed?"Droit requis pour cet onglet":t[requested][1];
     if(requested==="saisie")renderMassCalendar();
-    if(requested==="alertesAnnuelles"&&S.alertsAdmin)renderAnnualAlerts();if(requested==="alertes"&&S.alertsAllowed)list($("allAlerts"),S.alerts||[])
+    if(requested==="alertesAnnuelles"&&S.annualAlertsAllowed)renderAnnualAlerts();if(requested==="alertes"&&S.alertsAllowed)list($("allAlerts"),S.alerts||[])
   })
 }
 defaults();initSidebar();nav();updateSensitiveNavState();checkSensitiveAlertsAccess();if($("annualAlertYear"))$("annualAlertYear").onchange=renderAnnualAlerts;["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});

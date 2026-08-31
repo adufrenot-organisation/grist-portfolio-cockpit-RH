@@ -483,3 +483,9 @@ Interface :
 - liaison nominative à `Team` ;
 - `Alertes annuelles` reste réservé aux administrateurs RH ;
 - les ACL Grist restent nécessaires pour la sécurité des données.
+
+## V6.26
+- `Alertes` et `Alertes annuelles` sont désormais contrôlés exclusivement par `ACCES_ONGLETS` ;
+- codes : `ALERTES` et `ALERTES_ANNUELLES` ;
+- Admin RH / Owner ne donne plus d'accès implicite à ces onglets ;
+- droits indépendants par utilisateur `Team`.
