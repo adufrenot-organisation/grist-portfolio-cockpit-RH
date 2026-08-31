@@ -1,4 +1,4 @@
-const APP_VERSION="V6.29";
+const APP_VERSION="V6.30";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -1078,12 +1078,55 @@ function gristRefIds(v){
   if(Array.isArray(v)&&["L","l"].includes(v[0]))return v.slice(1).map(gristRefId).filter(x=>x!==null);
   const id=gristRefId(v);return id===null?[]:[id]
 }
+function viewAsEmail(){
+  // Grist "View As" garde l'identité réelle pour les écritures, mais expose
+  // l'utilisateur simulé dans l'URL du document. Selon l'hébergement du widget,
+  // le paramètre peut se trouver dans l'URL de l'iframe ou dans document.referrer.
+  const candidates=[];
+  try{candidates.push(String(window.location.href||""))}catch(_){}
+  try{candidates.push(String(document.referrer||""))}catch(_){}
+  try{
+    // Fonctionne uniquement si le parent est same-origin ; sinon l'accès est bloqué
+    // et on retombe silencieusement sur les autres sources.
+    candidates.push(String(window.parent?.location?.href||""))
+  }catch(_){}
+
+  for(const raw of candidates){
+    if(!raw)continue;
+    try{
+      const u=new URL(raw,window.location.href);
+      for(const key of ["aclAsUser_","aclAsUser","viewAs","viewAsUser"]){
+        const v=String(u.searchParams.get(key)||"").trim();
+        if(v&&v.includes("@"))return v.toLowerCase()
+      }
+    }catch(_){
+      const m=raw.match(/[?&](?:aclAsUser_|aclAsUser|viewAs|viewAsUser)=([^&#]+)/i);
+      if(m){
+        try{
+          const v=decodeURIComponent(m[1]).trim();
+          if(v.includes("@"))return v.toLowerCase()
+        }catch(__){}
+      }
+    }
+  }
+  return ""
+}
+async function effectiveAccessUser(){
+  const simulated=viewAsEmail();
+  if(simulated)return {email:simulated,name:"",source:"view-as"};
+  const user=await window.PmoPresence?.currentUser?.();
+  return {
+    email:String(user?.email||user?.Email||"").trim().toLowerCase(),
+    name:String(user?.name||user?.Name||user?.nom||"").trim(),
+    source:"session"
+  }
+}
 async function delegatedTabAccess(tabCode){
   const tables=await grist.docApi.listTables();
   if(!tables.includes(TAB_ACCESS_TABLE))return {allowed:false,reason:`Table ${TAB_ACCESS_TABLE} absente`};
 
-  const user=await window.PmoPresence?.currentUser?.();
-  const email=String(user?.email||user?.Email||"").trim().toLowerCase();
+  const user=await effectiveAccessUser();
+  const email=String(user?.email||"").trim().toLowerCase();
   if(!email)return {allowed:false,reason:"Utilisateur courant non identifié"};
 
   // Team est la référence nominative de la délégation.
@@ -1139,7 +1182,8 @@ async function delegatedTabAccess(tabCode){
     return false
   });
 
-  if(!allowed)console.warn("[ACCES_ONGLETS] Aucun droit trouvé",{email,tabCode,teamIds:[...myTeamIds],rows:rows.length});
+  if(!allowed)console.warn("[ACCES_ONGLETS] Aucun droit trouvé",{email,identitySource:user.source,tabCode,teamIds:[...myTeamIds],rows:rows.length});
+  else console.info("[ACCES_ONGLETS] Droit accordé",{email,identitySource:user.source,tabCode,teamIds:[...myTeamIds]});
   return {allowed,reason:allowed?"Délégation ACCES_ONGLETS active":`Aucune délégation ${tabCode} active`,teamId:[...myTeamIds][0]||null}
 }
 

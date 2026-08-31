@@ -505,3 +505,9 @@ Interface :
 ## V6.29
 - correction de l'onglet Alertes annuelles vide ;
 - le rendu annuel vérifie désormais `annualAlertsAllowed` (ACCES_ONGLETS) au lieu de l'ancien indicateur `alertsAdmin`.
+
+## V6.30
+- prise en charge du mode Grist **View As / Voir comme** pour `ACCES_ONGLETS` ;
+- le contrôle d'accès recherche d'abord l'utilisateur simulé dans `aclAsUser_` / `aclAsUser` ;
+- l'utilisateur de session réelle (`PmoPresence`) n'est utilisé qu'en secours ;
+- diagnostic console enrichi avec `identitySource: "view-as"` ou `"session"`.
