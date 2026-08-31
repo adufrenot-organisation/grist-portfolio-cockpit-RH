@@ -1,4 +1,4 @@
-const APP_VERSION="V6.23";
+const APP_VERSION="V6.25";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -19,7 +19,7 @@ function gristRows(data, tableName="") {
   }
   return rows;
 }
-const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAdminChecked:false,halfMonth:(new Date().getDate()<=15?1:2)};
+const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAllowed:false,alertsAdminChecked:false,alertAccessReason:"",halfMonth:(new Date().getDate()<=15?1:2)};
 const $=id=>document.getElementById(id),num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d,esc=(s="")=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const date=v=>typeof v==="number"?new Date(v*1000):Array.isArray(v)&&v[0]==="D"?new Date(v[1]*1000):new Date(v);
 const iso=v=>{const d=date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
@@ -351,7 +351,7 @@ function severity(p,v){const o=num(p.Seuil_Orange),r=num(p.Seuil_Rouge);if(p.Sen
 function forecast(a,b){return S.presence.filter(r=>{const d=date(r.Date),ds=iso(r.Date);return d>=a&&d<=b&&!isDateLocked(ds)})}
 function compute(){
   const now=new Date();now.setHours(0,0,0,0);
-  const out=[],team=activeTeam(),add=(p,l,v,dt="")=>{const s=severity(p,v);if(s)out.push({s,l,v,u:p.Unite||"",dt})};
+  const out=[],team=activeTeam(),add=(p,l,v,dt="")=>{const s=severity(p,v);if(s)out.push({s,l,v,u:p.Unite||"",dt,code:p.Code_Alerte||""})};
   S.params.filter(p=>p.Actif!==false).forEach(raw=>{
     const p=raw.Code_Alerte==="PRES_PHY"?physicalParam():raw;
     const days=Math.max(1,num(p.Fenetre_Jours,1)),end=new Date(now);end.setDate(end.getDate()+days-1);
@@ -450,8 +450,24 @@ function renderAnnualAlerts(){
   if($("annualTlDays"))$("annualTlDays").textContent=tl?.total||0;
   if($("annualDailyRows"))$("annualDailyRows").innerHTML=daily.length?daily.map(x=>`<tr><td><strong>${esc(x.p.Libelle||x.code)}</strong><small class="annual-code">${x.code}</small></td><td>${num(x.p.Seuil_Orange).toFixed(1)} ${esc(x.p.Unite||"")}</td><td>${num(x.p.Seuil_Rouge).toFixed(1)} ${esc(x.p.Unite||"")}</td><td>${x.orange}</td><td>${x.red}</td><td><strong>${x.total}</strong></td></tr>`).join(""):'<tr><td colspan="6" class="empty">Aucun seuil journalier actif.</td></tr>'
 }
-function list(el,a){el.innerHTML=a.length?a.map(x=>`<div class="alert ${x.s}"><strong>${x.s==="red"?"Critique":"Vigilance"} · ${esc(x.l)}</strong><small>${x.dt?x.dt+" · ":""}${Number(x.v).toFixed(1)} ${esc(x.u)}</small></div>`).join(""):'<div class="empty">Aucune alerte</div>'}
-function alerts(){S.alerts=compute();if(S.alertsAdmin&&$("allAlerts"))list($("allAlerts"),S.alerts);else if($("allAlerts"))$("allAlerts").innerHTML=""}
+function alertDetails(a){
+ const p=a.code==="PRES_PHY"?physicalParam():paramByCode(a.code),threshold=a.s==="red"?num(p?.Seuil_Rouge):num(p?.Seuil_Orange),team=activeTeam(),ds=a.dt||"",day=ds?S.presence.filter(r=>iso(r.Date)===ds&&!isDateLocked(ds)):[];
+ const names=codes=>day.filter(r=>codes.includes(motif(r.Motif)?.Code)).map(r=>resource(r.Ressource)?.nom).filter(Boolean);let cause="",people=[],action="";
+ if(a.code==="PRES_PHY"){const site=names(["P"]),remote=names(["TL","TE","TLE"]),absent=day.filter(r=>num(motif(r.Motif)?.Absence_Equivalent)>0).map(r=>resource(r.Ressource)?.nom).filter(Boolean);cause=`${site.length}/${team.length} sur site · ${remote.length} en télétravail · ${absent.length} en absence`;people=[...remote,...absent];action="Revoir les présences sur site ou le planning télétravail."}
+ else if(a.code==="TL_SIM"){people=names(["TL","TE","TLE"]);cause=`${people.length}/${team.length} ressources en télétravail`;action="Répartir le télétravail sur d’autres journées."}
+ else if(a.code==="FO_SIM"){people=names(["FO"]);cause=`${people.length}/${team.length} ressources en formation`;action="Vérifier la couverture opérationnelle ou répartir les formations."}
+ else if(a.code==="CAP_MIN"){people=day.filter(r=>{const m=motif(r.Motif);return m&&m.Compte_Capacite!==false&&num(m.Presence_Equivalent)<1}).map(r=>resource(r.Ressource)?.nom).filter(Boolean);cause=people.length?`${people.length} ressource(s) réduisent la capacité disponible`:"Capacité disponible sous le seuil";action="Examiner absences, télétravail et formations de cette journée."}
+ else if(a.code==="ABS_IND"){people=[(a.l||"").split(" · ")[0]];cause=`Absences prévues cumulées : ${Number(a.v).toFixed(1)} ${a.u||""}`;action="Vérifier le planning individuel et la continuité d’activité."}
+ else if(a.code==="ABS_EQ"){cause=`Taux d’absence prévu de l’équipe : ${Number(a.v).toFixed(1)} ${a.u||""}`;action="Identifier les journées et ressources qui concentrent les absences."}
+ return{threshold,cause,people:[...new Set(people)].slice(0,8),action}
+}
+function list(el,a){
+ if(!el)return;const level=$("alertLevelFilter")?.value||"",q=($("alertSearch")?.value||"").trim().toLowerCase();
+ const filtered=a.filter(x=>(!level||x.s===level)&&(!q||`${x.l} ${x.dt} ${x.code||""} ${alertDetails(x).people.join(" ")}`.toLowerCase().includes(q)));
+ if($("alertCriticalCount"))$("alertCriticalCount").textContent=a.filter(x=>x.s==="red").length;if($("alertWarningCount"))$("alertWarningCount").textContent=a.filter(x=>x.s==="orange").length;if($("alertDatesCount"))$("alertDatesCount").textContent=new Set(a.map(x=>x.dt).filter(Boolean)).size;
+ el.innerHTML=filtered.length?filtered.map(x=>{const d=alertDetails(x),dl=x.dt?date(x.dt).toLocaleDateString("fr-FR"):"Fenêtre";return `<div class="alert ${x.s} alert-card"><div class="alert-card-top"><span class="alert-level">${x.s==="red"?"🔴 Critique":"🟠 Vigilance"}</span><strong>${esc(x.l)}</strong><span class="alert-date">✏️ ${esc(dl)}</span></div><div class="alert-metrics"><b>${Number(x.v).toFixed(1)} ${esc(x.u||"")}</b><span>Seuil ${x.s==="red"?"rouge":"orange"} : ${Number(d.threshold).toFixed(1)} ${esc(x.u||"")}</span></div>${d.cause?`<div class="alert-cause"><strong>Pourquoi ?</strong> ${esc(d.cause)}</div>`:""}${d.people.length?`<div class="alert-people"><strong>Personnes concernées</strong> ${d.people.map(n=>`<span>${esc(n)}</span>`).join("")}</div>`:""}${d.action?`<div class="alert-action"><strong>Action à envisager</strong><span>${esc(d.action)}</span></div>`:""}</div>`}).join(""):'<div class="empty">Aucune alerte correspondant aux filtres.</div>'
+}
+function alerts(){S.alerts=compute();if(S.alertsAllowed&&$("allAlerts"))list($("allAlerts"),S.alerts);else if($("allAlerts"))$("allAlerts").innerHTML=""}
 function renderRecent(){const el=$("recent");if(!el)return;const rr=S.presence.slice().sort((a,b)=>date(b.Date)-date(a.Date)).slice(0,30);el.innerHTML=rr.map(r=>`<tr><td>${date(r.Date).toLocaleDateString("fr-FR")}</td><td>${esc(resource(r.Ressource)?.nom||"")}</td><td>${esc(motif(r.Motif)?.Code||"")}</td><td>${presenceStateHtml(iso(r.Date))}</td><td>${esc(r.Commentaire||"")}</td></tr>`).join("")}
 
 function teamRef(id){return S.teams.find(x=>x.id===Number(id))}
@@ -1027,33 +1043,114 @@ function presenceContext(){
 }
 
 
+
+const TAB_ACCESS_TABLE="ACCES_ONGLETS";
+const TAB_ACCESS_MODULE="COCKPIT_RH";
+const TAB_ACCESS_ALERTS="ALERTES";
+const normAccess=v=>String(v??"").trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[\s\-]+/g,"_");
+const accessFlag=(v,d=true)=>{
+  if(v===null||v===undefined||v==="")return d;
+  if(typeof v==="boolean")return v;
+  if(typeof v==="number")return v!==0;
+  return !["FALSE","0","NON","NO","OFF","INACTIF","INACTIVE"].includes(normAccess(v))
+};
+function teamEmail(r){return String(r?.Email??r?.email??r?.EMAIL??r?.Mail??r?.Utilisateur_Email??"").trim().toLowerCase()}
+function teamName(r){return String(r?.Nom??r?.nom??r?.Nom_Ressource??r?.Name??r?.name??"").trim()}
+function rowRefValue(row,fields){for(const f of fields){if(row&&row[f]!==undefined&&row[f]!==null&&row[f]!=="")return row[f]}return null}
+async function delegatedAlertAccess(){
+  const tables=await grist.docApi.listTables();
+  if(!tables.includes(TAB_ACCESS_TABLE))return {allowed:false,reason:`Table ${TAB_ACCESS_TABLE} absente`};
+
+  const user=await window.PmoPresence?.currentUser?.();
+  const email=String(user?.email||user?.Email||"").trim().toLowerCase();
+  if(!email)return {allowed:false,reason:"Utilisateur courant non identifié"};
+
+  // Team est la référence nominative de la délégation.
+  let teamRows=S.team||[];
+  if(!teamRows.length&&tables.includes(T.team))teamRows=gristRows(await grist.docApi.fetchTable(T.team),T.team);
+  const me=teamRows.find(r=>teamEmail(r)===email);
+  if(!me)return {allowed:false,reason:"Utilisateur absent de Team"};
+
+  const rows=gristRows(await grist.docApi.fetchTable(TAB_ACCESS_TABLE),TAB_ACCESS_TABLE);
+
+  // Le champ Module peut être le code texte COCKPIT_RH ou une Ref vers une table de modules.
+  const moduleRefIds=new Set();
+  for(const mt of ["ACCES_MODULE","ACCES_MODULES","DROITS_MODULES"]){
+    if(!tables.includes(mt))continue;
+    try{
+      const mr=gristRows(await grist.docApi.fetchTable(mt),mt);
+      mr.filter(r=>[r.Code,r.Code_Module,r.Module,r.Nom,r.Libelle].some(v=>normAccess(v)===TAB_ACCESS_MODULE))
+        .forEach(r=>moduleRefIds.add(Number(r.id)));
+    }catch(e){console.warn("Résolution module",mt,e)}
+  }
+
+  const allowed=rows.some(r=>{
+    if(!accessFlag(rowRefValue(r,["Actif","Active","Enabled"]),true))return false;
+
+    const tab=rowRefValue(r,["Onglet","Code_Onglet","Onglet_Code","Tab","Vue"]);
+    if(normAccess(tab)!==TAB_ACCESS_ALERTS)return false;
+
+    const mod=rowRefValue(r,["Module","Module_Code","Code_Module","Acces_Module"]);
+    const moduleOk=normAccess(mod)===TAB_ACCESS_MODULE || (Number.isFinite(Number(mod))&&moduleRefIds.has(Number(mod)));
+    if(!moduleOk)return false;
+
+    const tr=rowRefValue(r,["Team","Ressource","Utilisateur","Collaborateur","Team_Id"]);
+    if(Number.isFinite(Number(tr))&&Number(tr)===Number(me.id))return true;
+
+    const target=normAccess(tr);
+    return !!target && [normAccess(email),normAccess(teamName(me))].includes(target)
+  });
+
+  return {allowed,reason:allowed?"Délégation ACCES_ONGLETS active":"Aucune délégation ALERTES active",teamId:me.id}
+}
+
 async function checkSensitiveAlertsAccess(){
   try{
-    if(!window.PmoAccess?.check){
-      S.alertsAdmin=false;S.alertsAdminChecked=true;return false
-    }
-    // On réutilise exactement le droit du module Administration RH :
-    // Owner Grist ou profil autorisé sur ADMIN_RH = accès aux onglets sensibles.
-    const result=await window.PmoAccess.check({module:"ADMIN_RH",label:"Administration RH"});
-    S.alertsAdmin=!!result?.allowed;
+    // Niveau 1 : droit administrateur RH existant (Owner inclus via PmoAccess).
+    const adminResult=window.PmoAccess?.check
+      ? await window.PmoAccess.check({module:"ADMIN_RH",label:"Administration RH"})
+      : {allowed:false};
+
+    S.alertsAdmin=!!adminResult?.allowed;
+
+    // Niveau 2 : délégation nominative pour l'onglet Alertes uniquement.
+    let delegated={allowed:false,reason:""};
+    if(!S.alertsAdmin)delegated=await delegatedAlertAccess();
+
+    S.alertsAllowed=S.alertsAdmin||!!delegated.allowed;
+    S.alertAccessReason=S.alertsAdmin?"Administrateur RH":delegated.reason||"Accès non autorisé";
     S.alertsAdminChecked=true;
     updateSensitiveNavState();
-    if(S.alertsAdmin){if($("allAlerts"))list($("allAlerts"),S.alerts||[]);renderAnnualAlerts()}
-    return S.alertsAdmin
+
+    if(S.alertsAllowed&&$("allAlerts"))list($("allAlerts"),S.alerts||[]);
+    if(S.alertsAdmin)renderAnnualAlerts();
+    return S.alertsAllowed
   }catch(e){
     console.warn("Contrôle accès alertes",e);
-    S.alertsAdmin=false;S.alertsAdminChecked=true;updateSensitiveNavState();return false
+    S.alertsAdmin=false;S.alertsAllowed=false;S.alertsAdminChecked=true;
+    S.alertAccessReason="Erreur de contrôle d’accès";
+    updateSensitiveNavState();return false
   }
 }
 function updateSensitiveNavState(){
   document.querySelectorAll(".sensitive-nav").forEach(b=>{
-    b.classList.toggle("sensitive-allowed",!!S.alertsAdmin);
+    const view=b.dataset.view;
+    const allowed=view==="alertes"?S.alertsAllowed:S.alertsAdmin;
+    b.classList.toggle("sensitive-allowed",!!allowed);
     const lock=b.querySelector(".nav-lock");
-    if(lock)lock.textContent=S.alertsAdmin?"":"🔒";
-    b.title=S.alertsAdmin?"Accès administrateur":"Réservé aux administrateurs RH"
+    if(lock)lock.textContent=allowed?"":"🔒";
+    if(view==="alertes"){
+      b.title=allowed?(S.alertsAdmin?"Accès administrateur RH":"Accès délégué à l’onglet Alertes"):"Accès soumis aux droits RH / ACCES_ONGLETS"
+    }else{
+      b.title=allowed?"Accès administrateur RH":"Réservé aux administrateurs RH"
+    }
   })
 }
-function sensitiveViewAllowed(view){return !["alertes","alertesAnnuelles"].includes(view)||S.alertsAdmin}
+function sensitiveViewAllowed(view){
+  if(view==="alertes")return !!S.alertsAllowed;
+  if(view==="alertesAnnuelles")return !!S.alertsAdmin;
+  return true
+}
 function nav(){
   document.querySelectorAll(".nav-item").forEach(b=>b.onclick=async()=>{
     document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
@@ -1077,10 +1174,11 @@ function nav(){
       alertes:["Alertes","Alertes calculées sur les présences ouvertes selon les seuils configurés"],
       rapports:["Rapports","Synthèse des dernières saisies enregistrées"]
     };
-    $("title").textContent=sensitive&&!S.alertsAdmin?"Accès restreint":t[requested][0];
-    $("subtitle").textContent=sensitive&&!S.alertsAdmin?"Onglet réservé aux administrateurs RH":t[requested][1];
+    const allowed=sensitiveViewAllowed(requested);
+    $("title").textContent=sensitive&&!allowed?"Accès restreint":t[requested][0];
+    $("subtitle").textContent=sensitive&&!allowed?"Droit requis pour cet onglet":t[requested][1];
     if(requested==="saisie")renderMassCalendar();
-    if(requested==="alertesAnnuelles"&&S.alertsAdmin)renderAnnualAlerts()
+    if(requested==="alertesAnnuelles"&&S.alertsAdmin)renderAnnualAlerts();if(requested==="alertes"&&S.alertsAllowed)list($("allAlerts"),S.alerts||[])
   })
 }
 defaults();initSidebar();nav();updateSensitiveNavState();checkSensitiveAlertsAccess();if($("annualAlertYear"))$("annualAlertYear").onchange=renderAnnualAlerts;["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
@@ -1138,3 +1236,5 @@ if($("initCalendarAction"))$("initCalendarAction").onchange=updateInitCalendarPr
 if($("initPreserveHolidays"))$("initPreserveHolidays").onchange=updateInitCalendarPreview;
 if($("cockpitVersion"))$("cockpitVersion").textContent=`Cockpit RH · ${APP_VERSION}`;
 grist.ready({requiredAccess:"full"});window.PmoPresence?.start({widget:"COCKPIT_RH",version:APP_VERSION,getContext:presenceContext});load().catch(e=>notify(e.message||e));
+
+["alertLevelFilter","alertSearch"].forEach(id=>{const el=$(id);if(el)el.addEventListener(id==="alertSearch"?"input":"change",()=>{if(S.alertsAllowed)list($("allAlerts"),S.alerts||[])})});

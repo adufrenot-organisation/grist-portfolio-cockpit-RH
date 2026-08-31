@@ -473,3 +473,13 @@ Interface :
 - état ouvert/modifiable représenté par ✏️ au lieu d'un cadenas ouvert ;
 - état verrouillé/réalisé conserve 🔒 ;
 - correction de la barre État automatique / Commentaire / Enregistrer pour éviter les chevauchements.
+
+## V6.24
+- Alertes opérationnelles : synthèse, filtres, cause, personnes concernées et action suggérée.
+
+## V6.25
+- ajout de la table `ACCES_ONGLETS` pour déléguer l'accès à l'onglet Alertes à des utilisateurs non-admin ;
+- lien possible avec la table de modules via Ref ou code `COCKPIT_RH` ;
+- liaison nominative à `Team` ;
+- `Alertes annuelles` reste réservé aux administrateurs RH ;
+- les ACL Grist restent nécessaires pour la sécurité des données.
