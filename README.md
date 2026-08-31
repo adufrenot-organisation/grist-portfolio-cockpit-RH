@@ -511,3 +511,9 @@ Interface :
 - le contrôle d'accès recherche d'abord l'utilisateur simulé dans `aclAsUser_` / `aclAsUser` ;
 - l'utilisateur de session réelle (`PmoPresence`) n'est utilisé qu'en secours ;
 - diagnostic console enrichi avec `identitySource: "view-as"` ou `"session"`.
+
+## V6.31
+- diagnostic `ACCES_ONGLETS` directement visible dans le widget ;
+- affiche l'utilisateur détecté, la source (`view-as` ou `session`), les IDs Team, le nombre de lignes visibles, le résultat et la raison ;
+- diagnostic visible sur l'écran Accès restreint et dans les deux onglets Alertes ;
+- bouton pour relancer immédiatement le contrôle.

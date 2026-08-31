@@ -1,4 +1,4 @@
-const APP_VERSION="V6.30";
+const APP_VERSION="V6.31";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -19,7 +19,7 @@ function gristRows(data, tableName="") {
   }
   return rows;
 }
-const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAllowed:false,annualAlertsAllowed:false,alertsAdminChecked:false,alertAccessReason:"",halfMonth:(new Date().getDate()<=15?1:2)};
+const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAllowed:false,annualAlertsAllowed:false,alertsAdminChecked:false,alertAccessReason:"",accessDiagnostics:{},halfMonth:(new Date().getDate()<=15?1:2)};
 const $=id=>document.getElementById(id),num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d,esc=(s="")=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const date=v=>typeof v==="number"?new Date(v*1000):Array.isArray(v)&&v[0]==="D"?new Date(v[1]*1000):new Date(v);
 const iso=v=>{const d=date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
@@ -1123,17 +1123,17 @@ async function effectiveAccessUser(){
 }
 async function delegatedTabAccess(tabCode){
   const tables=await grist.docApi.listTables();
-  if(!tables.includes(TAB_ACCESS_TABLE))return {allowed:false,reason:`Table ${TAB_ACCESS_TABLE} absente`};
+  if(!tables.includes(TAB_ACCESS_TABLE))return {allowed:false,reason:`Table ${TAB_ACCESS_TABLE} absente`,tabCode,email:"",identitySource:"",teamIds:[],rows:0};
 
   const user=await effectiveAccessUser();
   const email=String(user?.email||"").trim().toLowerCase();
-  if(!email)return {allowed:false,reason:"Utilisateur courant non identifié"};
+  if(!email)return {allowed:false,reason:"Utilisateur courant non identifié",tabCode,email:"",identitySource:user.source||"",teamIds:[],rows:0};
 
   // Team est la référence nominative de la délégation.
   let teamRows=S.team||[];
   if(!teamRows.length&&tables.includes(T.team))teamRows=gristRows(await grist.docApi.fetchTable(T.team),T.team);
   const meRows=teamRows.filter(r=>teamEmail(r)===email);
-  if(!meRows.length)return {allowed:false,reason:"Utilisateur absent de Team"};
+  if(!meRows.length)return {allowed:false,reason:"Utilisateur absent de Team",tabCode,email,identitySource:user.source||"",teamIds:[],rows:0};
   const myTeamIds=new Set(meRows.map(r=>Number(r.id)).filter(Number.isFinite));
   const myNames=new Set(meRows.map(teamName).filter(Boolean).map(normAccess));
 
@@ -1184,7 +1184,38 @@ async function delegatedTabAccess(tabCode){
 
   if(!allowed)console.warn("[ACCES_ONGLETS] Aucun droit trouvé",{email,identitySource:user.source,tabCode,teamIds:[...myTeamIds],rows:rows.length});
   else console.info("[ACCES_ONGLETS] Droit accordé",{email,identitySource:user.source,tabCode,teamIds:[...myTeamIds]});
-  return {allowed,reason:allowed?"Délégation ACCES_ONGLETS active":`Aucune délégation ${tabCode} active`,teamId:[...myTeamIds][0]||null}
+  return {
+    allowed,
+    reason:allowed?"Délégation ACCES_ONGLETS active":`Aucune délégation ${tabCode} active`,
+    teamId:[...myTeamIds][0]||null,
+    teamIds:[...myTeamIds],
+    email,
+    identitySource:user.source||"",
+    tabCode,
+    rows:rows.length
+  }
+}
+
+function accessDiagnosticText(d){
+  if(!d)return "Diagnostic non exécuté.";
+  const ids=Array.isArray(d.teamIds)&&d.teamIds.length?d.teamIds.join(", "):"aucun";
+  return [
+    `Utilisateur détecté : ${d.email||"non identifié"}`,
+    `Source identité : ${d.identitySource||"inconnue"}`,
+    `Onglet : ${d.tabCode||"—"}`,
+    `ID Team : ${ids}`,
+    `Lignes ACCES_ONGLETS visibles : ${Number.isFinite(Number(d.rows))?d.rows:"—"}`,
+    `Résultat : ${d.allowed?"AUTORISÉ":"REFUSÉ"}`,
+    `Raison : ${d.reason||"—"}`
+  ].join("\n")
+}
+function renderAccessDiagnostics(){
+  const op=S.accessDiagnostics?.ALERTES;
+  const an=S.accessDiagnostics?.ALERTES_ANNUELLES;
+  const combined=`ALERTES\n${accessDiagnosticText(op)}\n\nALERTES_ANNUELLES\n${accessDiagnosticText(an)}`;
+  if($("accessDiagnostic"))$("accessDiagnostic").textContent=combined;
+  if($("alertsAccessDiagnostic"))$("alertsAccessDiagnostic").textContent=accessDiagnosticText(op);
+  if($("annualAccessDiagnostic"))$("annualAccessDiagnostic").textContent=accessDiagnosticText(an);
 }
 
 async function checkSensitiveAlertsAccess(){
@@ -1195,11 +1226,13 @@ async function checkSensitiveAlertsAccess(){
     const operational=await delegatedTabAccess("ALERTES");
     const annual=await delegatedTabAccess("ALERTES_ANNUELLES");
 
+    S.accessDiagnostics={ALERTES:operational,ALERTES_ANNUELLES:annual};
     S.alertsAllowed=!!operational.allowed;
     S.annualAlertsAllowed=!!annual.allowed;
     S.alertAccessReason=operational.reason||"Accès non autorisé";
     S.alertsAdminChecked=true;
     updateSensitiveNavState();
+    renderAccessDiagnostics();
 
     if(S.alertsAllowed&&$("allAlerts"))list($("allAlerts"),S.alerts||[]);
     if(S.annualAlertsAllowed)renderAnnualAlerts();
@@ -1208,7 +1241,11 @@ async function checkSensitiveAlertsAccess(){
     console.warn("Contrôle accès onglets alertes",e);
     S.alertsAdmin=false;S.alertsAllowed=false;S.annualAlertsAllowed=false;S.alertsAdminChecked=true;
     S.alertAccessReason="Erreur de contrôle d’accès";
-    updateSensitiveNavState();return false
+    S.accessDiagnostics={
+      ALERTES:{allowed:false,reason:e?.message||String(e),tabCode:"ALERTES",email:"",identitySource:"",teamIds:[],rows:0},
+      ALERTES_ANNUELLES:{allowed:false,reason:e?.message||String(e),tabCode:"ALERTES_ANNUELLES",email:"",identitySource:"",teamIds:[],rows:0}
+    };
+    updateSensitiveNavState();renderAccessDiagnostics();return false
   }
 }
 function updateSensitiveNavState(){
@@ -1256,7 +1293,7 @@ function nav(){
     if(requested==="alertesAnnuelles"&&S.annualAlertsAllowed)renderAnnualAlerts();if(requested==="alertes"&&S.alertsAllowed)list($("allAlerts"),S.alerts||[])
   })
 }
-defaults();initSidebar();nav();updateSensitiveNavState();checkSensitiveAlertsAccess();if($("annualAlertYear"))$("annualAlertYear").onchange=renderAnnualAlerts;["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
+defaults();initSidebar();nav();updateSensitiveNavState();checkSensitiveAlertsAccess();if($("refreshAccessDiagnostic"))$("refreshAccessDiagnostic").onclick=()=>{S.alertsAdminChecked=false;$("accessDiagnostic").textContent="Contrôle en cours…";checkSensitiveAlertsAccess()};if($("annualAlertYear"))$("annualAlertYear").onchange=renderAnnualAlerts;["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
 $("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=previousHalfMonth;$("nextMonth").onclick=nextHalfMonth;$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
 $("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});
 $("resetCsv").onclick=resetCsvImport;csvSetup();
