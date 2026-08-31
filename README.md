@@ -494,3 +494,14 @@ Interface :
 - correction de la lecture des colonnes Ref Grist dans `ACCES_ONGLETS` ;
 - `Team` et `Module` acceptent maintenant les références Grist `['R', id]`, les IDs numériques et les valeurs texte de secours ;
 - la comparaison `Team` se fait sur l'ID réel de la ressource connectée.
+
+## V6.28
+- fiabilisation de l'identification utilisateur pour `ACCES_ONGLETS` ;
+- prise en charge de plusieurs lignes `Team` portant le même email ;
+- une autorisation est reconnue si la référence pointe vers l'une quelconque de ces lignes ;
+- fallback par email/nom et résolution de la ligne Team référencée ;
+- diagnostic console ajouté en cas de droit non trouvé.
+
+## V6.29
+- correction de l'onglet Alertes annuelles vide ;
+- le rendu annuel vérifie désormais `annualAlertsAllowed` (ACCES_ONGLETS) au lieu de l'ancien indicateur `alertsAdmin`.

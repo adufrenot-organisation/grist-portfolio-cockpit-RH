@@ -1,4 +1,4 @@
-const APP_VERSION="V6.27";
+const APP_VERSION="V6.29";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -426,7 +426,7 @@ function setupAnnualYears(){
   el.value=[...el.options].some(o=>Number(o.value)===current)?String(current):el.options[0]?.value||String(new Date().getFullYear())
 }
 function renderAnnualAlerts(){
-  if(!S.alertsAdmin){if($("annualAbsenceRows"))$("annualAbsenceRows").innerHTML="";if($("annualDailyRows"))$("annualDailyRows").innerHTML="";return}
+  if(!S.annualAlertsAllowed){if($("annualAbsenceRows"))$("annualAbsenceRows").innerHTML="";if($("annualDailyRows"))$("annualDailyRows").innerHTML="";return}
   const year=Number($("annualAlertYear")?.value)||new Date().getFullYear(),rr=annualYearRows(year),p=annualAbsenceParam(),team=activeTeam();
   const orange=num(p.Seuil_Orange,50),red=num(p.Seuil_Rouge,55);
   if($("annualAbsenceThresholdInfo"))$("annualAbsenceThresholdInfo").textContent=`ABS_ANNUEL · Orange ≥ ${orange.toFixed(1)} jours · Rouge ≥ ${red.toFixed(1)} jours`;
@@ -1089,8 +1089,10 @@ async function delegatedTabAccess(tabCode){
   // Team est la référence nominative de la délégation.
   let teamRows=S.team||[];
   if(!teamRows.length&&tables.includes(T.team))teamRows=gristRows(await grist.docApi.fetchTable(T.team),T.team);
-  const me=teamRows.find(r=>teamEmail(r)===email);
-  if(!me)return {allowed:false,reason:"Utilisateur absent de Team"};
+  const meRows=teamRows.filter(r=>teamEmail(r)===email);
+  if(!meRows.length)return {allowed:false,reason:"Utilisateur absent de Team"};
+  const myTeamIds=new Set(meRows.map(r=>Number(r.id)).filter(Number.isFinite));
+  const myNames=new Set(meRows.map(teamName).filter(Boolean).map(normAccess));
 
   const rows=gristRows(await grist.docApi.fetchTable(TAB_ACCESS_TABLE),TAB_ACCESS_TABLE);
 
@@ -1118,14 +1120,27 @@ async function delegatedTabAccess(tabCode){
 
     const tr=rowRefValue(r,["Team","Ressource","Utilisateur","Collaborateur","Team_Id"]);
     const teamIds=gristRefIds(tr);
-    if(teamIds.some(id=>Number(id)===Number(me.id)))return true;
 
-    // Fallback utile si la colonne n'est finalement pas une Ref mais contient l'email/nom.
+    // Important : un même email peut exister sur plusieurs lignes Team.
+    // On autorise si la référence ACCES_ONGLETS pointe vers N'IMPORTE QUELLE
+    // ligne Team correspondant à l'utilisateur connecté.
+    if(teamIds.some(id=>myTeamIds.has(Number(id))))return true;
+
+    // Si Grist renvoie une valeur texte, on compare email et noms connus.
     const target=normAccess(tr);
-    return !!target && [normAccess(email),normAccess(teamName(me))].includes(target)
+    if(target===normAccess(email)||myNames.has(target))return true;
+
+    // Dernier secours : si la Ref est lisible mais pointe vers une autre ligne
+    // Team portant le même email (cas de doublon / ancienne ligne), on la résout.
+    for(const id of teamIds){
+      const linked=teamRows.find(t=>Number(t.id)===Number(id));
+      if(linked&&teamEmail(linked)===email)return true;
+    }
+    return false
   });
 
-  return {allowed,reason:allowed?"Délégation ACCES_ONGLETS active":`Aucune délégation ${tabCode} active`,teamId:me.id}
+  if(!allowed)console.warn("[ACCES_ONGLETS] Aucun droit trouvé",{email,tabCode,teamIds:[...myTeamIds],rows:rows.length});
+  return {allowed,reason:allowed?"Délégation ACCES_ONGLETS active":`Aucune délégation ${tabCode} active`,teamId:[...myTeamIds][0]||null}
 }
 
 async function checkSensitiveAlertsAccess(){
