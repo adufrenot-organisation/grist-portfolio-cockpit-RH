@@ -1,4 +1,4 @@
-const APP_VERSION="V6.31";
+const APP_VERSION="V6.32";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -19,7 +19,7 @@ function gristRows(data, tableName="") {
   }
   return rows;
 }
-const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAllowed:false,annualAlertsAllowed:false,alertsAdminChecked:false,alertAccessReason:"",accessDiagnostics:{},halfMonth:(new Date().getDate()<=15?1:2)};
+const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAllowed:false,annualAlertsAllowed:false,logsAllowed:false,alertsAdminChecked:false,alertAccessReason:"",accessDiagnostics:{},halfMonth:(new Date().getDate()<=15?1:2)};
 const $=id=>document.getElementById(id),num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d,esc=(s="")=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const date=v=>typeof v==="number"?new Date(v*1000):Array.isArray(v)&&v[0]==="D"?new Date(v[1]*1000):new Date(v);
 const iso=v=>{const d=date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
@@ -1212,10 +1212,13 @@ function accessDiagnosticText(d){
 function renderAccessDiagnostics(){
   const op=S.accessDiagnostics?.ALERTES;
   const an=S.accessDiagnostics?.ALERTES_ANNUELLES;
-  const combined=`ALERTES\n${accessDiagnosticText(op)}\n\nALERTES_ANNUELLES\n${accessDiagnosticText(an)}`;
+  const lg=S.accessDiagnostics?.LOGS;
+  const combined=[
+    `ALERTES\n${accessDiagnosticText(op)}`,
+    `ALERTES_ANNUELLES\n${accessDiagnosticText(an)}`,
+    `LOGS\n${accessDiagnosticText(lg)}`
+  ].join("\n\n");
   if($("accessDiagnostic"))$("accessDiagnostic").textContent=combined;
-  if($("alertsAccessDiagnostic"))$("alertsAccessDiagnostic").textContent=accessDiagnosticText(op);
-  if($("annualAccessDiagnostic"))$("annualAccessDiagnostic").textContent=accessDiagnosticText(an);
 }
 
 async function checkSensitiveAlertsAccess(){
@@ -1225,10 +1228,12 @@ async function checkSensitiveAlertsAccess(){
     S.alertsAdmin=false;
     const operational=await delegatedTabAccess("ALERTES");
     const annual=await delegatedTabAccess("ALERTES_ANNUELLES");
+    const logs=await delegatedTabAccess("LOGS");
 
-    S.accessDiagnostics={ALERTES:operational,ALERTES_ANNUELLES:annual};
+    S.accessDiagnostics={ALERTES:operational,ALERTES_ANNUELLES:annual,LOGS:logs};
     S.alertsAllowed=!!operational.allowed;
     S.annualAlertsAllowed=!!annual.allowed;
+    S.logsAllowed=!!logs.allowed;
     S.alertAccessReason=operational.reason||"Accès non autorisé";
     S.alertsAdminChecked=true;
     updateSensitiveNavState();
@@ -1236,14 +1241,15 @@ async function checkSensitiveAlertsAccess(){
 
     if(S.alertsAllowed&&$("allAlerts"))list($("allAlerts"),S.alerts||[]);
     if(S.annualAlertsAllowed)renderAnnualAlerts();
-    return S.alertsAllowed||S.annualAlertsAllowed
+    return S.alertsAllowed||S.annualAlertsAllowed||S.logsAllowed
   }catch(e){
     console.warn("Contrôle accès onglets alertes",e);
-    S.alertsAdmin=false;S.alertsAllowed=false;S.annualAlertsAllowed=false;S.alertsAdminChecked=true;
+    S.alertsAdmin=false;S.alertsAllowed=false;S.annualAlertsAllowed=false;S.logsAllowed=false;S.alertsAdminChecked=true;
     S.alertAccessReason="Erreur de contrôle d’accès";
     S.accessDiagnostics={
       ALERTES:{allowed:false,reason:e?.message||String(e),tabCode:"ALERTES",email:"",identitySource:"",teamIds:[],rows:0},
-      ALERTES_ANNUELLES:{allowed:false,reason:e?.message||String(e),tabCode:"ALERTES_ANNUELLES",email:"",identitySource:"",teamIds:[],rows:0}
+      ALERTES_ANNUELLES:{allowed:false,reason:e?.message||String(e),tabCode:"ALERTES_ANNUELLES",email:"",identitySource:"",teamIds:[],rows:0},
+      LOGS:{allowed:false,reason:e?.message||String(e),tabCode:"LOGS",email:"",identitySource:"",teamIds:[],rows:0}
     };
     updateSensitiveNavState();renderAccessDiagnostics();return false
   }
@@ -1251,7 +1257,7 @@ async function checkSensitiveAlertsAccess(){
 function updateSensitiveNavState(){
   document.querySelectorAll(".sensitive-nav").forEach(b=>{
     const view=b.dataset.view;
-    const allowed=view==="alertes"?S.alertsAllowed:view==="alertesAnnuelles"?S.annualAlertsAllowed:true;
+    const allowed=view==="alertes"?S.alertsAllowed:view==="alertesAnnuelles"?S.annualAlertsAllowed:view==="logs"?S.logsAllowed:true;
     b.classList.toggle("sensitive-allowed",!!allowed);
     const lock=b.querySelector(".nav-lock");
     if(lock)lock.textContent=allowed?"":"🔒";
@@ -1261,6 +1267,7 @@ function updateSensitiveNavState(){
 function sensitiveViewAllowed(view){
   if(view==="alertes")return !!S.alertsAllowed;
   if(view==="alertesAnnuelles")return !!S.annualAlertsAllowed;
+  if(view==="logs")return !!S.logsAllowed;
   return true
 }
 function nav(){
@@ -1271,7 +1278,7 @@ function nav(){
     document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
 
     const requested=b.dataset.view;
-    const sensitive=["alertes","alertesAnnuelles"].includes(requested);
+    const sensitive=["alertes","alertesAnnuelles","logs"].includes(requested);
     if(sensitive&&!S.alertsAdminChecked)await checkSensitiveAlertsAccess();
 
     const target=sensitiveViewAllowed(requested)?requested:"alertsRestricted";
@@ -1284,16 +1291,18 @@ function nav(){
       imports:["Imports","Importez des calendriers Excel ou CSV dans Grist"],
       alertesAnnuelles:["Alertes annuelles","Projection annuelle des absences et franchissements de seuils"],
       alertes:["Alertes","Alertes calculées sur les présences ouvertes selon les seuils configurés"],
-      rapports:["Rapports","Synthèse des dernières saisies enregistrées"]
+      rapports:["Rapports","Synthèse des dernières saisies enregistrées"],
+      logs:["Logs","Diagnostic technique des droits d’accès aux onglets"]
     };
     const allowed=sensitiveViewAllowed(requested);
     $("title").textContent=sensitive&&!allowed?"Accès restreint":t[requested][0];
     $("subtitle").textContent=sensitive&&!allowed?"Droit requis pour cet onglet":t[requested][1];
     if(requested==="saisie")renderMassCalendar();
+    if(requested==="logs"&&S.logsAllowed)renderAccessDiagnostics();
     if(requested==="alertesAnnuelles"&&S.annualAlertsAllowed)renderAnnualAlerts();if(requested==="alertes"&&S.alertsAllowed)list($("allAlerts"),S.alerts||[])
   })
 }
-defaults();initSidebar();nav();updateSensitiveNavState();checkSensitiveAlertsAccess();if($("refreshAccessDiagnostic"))$("refreshAccessDiagnostic").onclick=()=>{S.alertsAdminChecked=false;$("accessDiagnostic").textContent="Contrôle en cours…";checkSensitiveAlertsAccess()};if($("annualAlertYear"))$("annualAlertYear").onchange=renderAnnualAlerts;["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
+defaults();initSidebar();nav();updateSensitiveNavState();checkSensitiveAlertsAccess();if($("refreshAccessDiagnostic"))$("refreshAccessDiagnostic").onclick=()=>{S.alertsAdminChecked=false;if($("accessDiagnostic"))$("accessDiagnostic").textContent="Contrôle en cours…";checkSensitiveAlertsAccess()};if($("annualAlertYear"))$("annualAlertYear").onchange=renderAnnualAlerts;["from","to","person"].forEach(id=>$(id).onchange=pilotage);$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
 $("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=previousHalfMonth;$("nextMonth").onclick=nextHalfMonth;$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
 $("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});
 $("resetCsv").onclick=resetCsvImport;csvSetup();

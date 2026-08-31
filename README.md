@@ -517,3 +517,10 @@ Interface :
 - affiche l'utilisateur détecté, la source (`view-as` ou `session`), les IDs Team, le nombre de lignes visibles, le résultat et la raison ;
 - diagnostic visible sur l'écran Accès restreint et dans les deux onglets Alertes ;
 - bouton pour relancer immédiatement le contrôle.
+
+## V6.32
+- suppression du diagnostic visible sur l’écran « Accès restreint » et dans les onglets Alertes ;
+- ajout d’un onglet **Logs** dédié ;
+- accès à Logs exclusivement piloté par `ACCES_ONGLETS` avec `Onglet = LOGS` et `Actif = vrai` ;
+- le diagnostic technique des droits `ALERTES`, `ALERTES_ANNUELLES` et `LOGS` est affiché uniquement dans cet onglet ;
+- ajout d’un bouton de relance du diagnostic dans Logs.

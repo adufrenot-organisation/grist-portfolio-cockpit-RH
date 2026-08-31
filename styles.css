@@ -973,3 +973,6 @@ body.sidebar-collapsed .nav-lock{position:absolute;right:5px;top:5px;font-size:9
 .access-diagnostic>div:not(.access-diagnostic-title){white-space:pre-line;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.55}
 .access-diagnostic-refresh{margin-top:10px}
 .access-diagnostic-inline{margin:0 0 14px 0}
+
+.access-diagnostic-logs{margin-top:0}
+#logs code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em}
