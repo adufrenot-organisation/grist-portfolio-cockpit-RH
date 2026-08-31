@@ -1,4 +1,4 @@
-const APP_VERSION="V6.26";
+const APP_VERSION="V6.27";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -1057,6 +1057,27 @@ const accessFlag=(v,d=true)=>{
 function teamEmail(r){return String(r?.Email??r?.email??r?.EMAIL??r?.Mail??r?.Utilisateur_Email??"").trim().toLowerCase()}
 function teamName(r){return String(r?.Nom??r?.nom??r?.Nom_Ressource??r?.Name??r?.name??"").trim()}
 function rowRefValue(row,fields){for(const f of fields){if(row&&row[f]!==undefined&&row[f]!==null&&row[f]!=="")return row[f]}return null}
+function gristRefId(v){
+  if(typeof v==="number"&&Number.isFinite(v))return v;
+  if(Array.isArray(v)){
+    // Grist references may be represented as ["R", id] / ["r", id].
+    if((v[0]==="R"||v[0]==="r")&&Number.isFinite(Number(v[1])))return Number(v[1]);
+    // Defensive support for a one-item reference list.
+    for(const x of v){const id=gristRefId(x);if(id!==null)return id}
+  }
+  if(v&&typeof v==="object"){
+    for(const k of ["id","rowId","recordId"]){
+      if(Number.isFinite(Number(v[k])))return Number(v[k])
+    }
+  }
+  const s=String(v??"").trim();
+  if(/^\d+$/.test(s))return Number(s);
+  return null
+}
+function gristRefIds(v){
+  if(Array.isArray(v)&&["L","l"].includes(v[0]))return v.slice(1).map(gristRefId).filter(x=>x!==null);
+  const id=gristRefId(v);return id===null?[]:[id]
+}
 async function delegatedTabAccess(tabCode){
   const tables=await grist.docApi.listTables();
   if(!tables.includes(TAB_ACCESS_TABLE))return {allowed:false,reason:`Table ${TAB_ACCESS_TABLE} absente`};
@@ -1091,12 +1112,15 @@ async function delegatedTabAccess(tabCode){
     if(normAccess(tab)!==normAccess(tabCode))return false;
 
     const mod=rowRefValue(r,["Module","Module_Code","Code_Module","Acces_Module"]);
-    const moduleOk=normAccess(mod)===TAB_ACCESS_MODULE || (Number.isFinite(Number(mod))&&moduleRefIds.has(Number(mod)));
+    const moduleIds=gristRefIds(mod);
+    const moduleOk=normAccess(mod)===TAB_ACCESS_MODULE || moduleIds.some(id=>moduleRefIds.has(id));
     if(!moduleOk)return false;
 
     const tr=rowRefValue(r,["Team","Ressource","Utilisateur","Collaborateur","Team_Id"]);
-    if(Number.isFinite(Number(tr))&&Number(tr)===Number(me.id))return true;
+    const teamIds=gristRefIds(tr);
+    if(teamIds.some(id=>Number(id)===Number(me.id)))return true;
 
+    // Fallback utile si la colonne n'est finalement pas une Ref mais contient l'email/nom.
     const target=normAccess(tr);
     return !!target && [normAccess(email),normAccess(teamName(me))].includes(target)
   });

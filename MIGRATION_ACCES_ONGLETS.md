@@ -46,3 +46,15 @@ Pour chaque onglet :
 Les droits sont indépendants : une personne peut avoir `ALERTES` sans `ALERTES_ANNUELLES`, l'inverse, les deux, ou aucun.
 
 Les ACL Grist restent la sécurité réelle des données.
+
+## V6.27 — Références Grist
+
+Le contrôle accepte maintenant explicitement les références Grist renvoyées sous forme `["R", id]` ainsi que les identifiants numériques.
+
+La configuration recommandée correspond donc directement à :
+- `Module` : colonne **Ref** vers la table de modules ;
+- `Team` : colonne **Ref** vers `Team`, avec l'email comme colonne d'affichage ;
+- `Onglet` : `ALERTES` ou `ALERTES_ANNUELLES` ;
+- `Actif` : coché.
+
+La comparaison d'autorisation se fait sur l'identifiant réel de la ligne référencée, et non sur le texte affiché dans la cellule.

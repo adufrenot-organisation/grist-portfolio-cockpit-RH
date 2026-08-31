@@ -489,3 +489,8 @@ Interface :
 - codes : `ALERTES` et `ALERTES_ANNUELLES` ;
 - Admin RH / Owner ne donne plus d'accès implicite à ces onglets ;
 - droits indépendants par utilisateur `Team`.
+
+## V6.27
+- correction de la lecture des colonnes Ref Grist dans `ACCES_ONGLETS` ;
+- `Team` et `Module` acceptent maintenant les références Grist `['R', id]`, les IDs numériques et les valeurs texte de secours ;
+- la comparaison `Team` se fait sur l'ID réel de la ressource connectée.
