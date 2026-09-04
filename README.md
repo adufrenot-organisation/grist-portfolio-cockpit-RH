@@ -524,3 +524,10 @@ Interface :
 - accès à Logs exclusivement piloté par `ACCES_ONGLETS` avec `Onglet = LOGS` et `Actif = vrai` ;
 - le diagnostic technique des droits `ALERTES`, `ALERTES_ANNUELLES` et `LOGS` est affiché uniquement dans cet onglet ;
 - ajout d’un bouton de relance du diagnostic dans Logs.
+
+## V6.33
+- correction du bouton `Tout afficher` dans `Motifs affichés dans la grille` ;
+- suppression de deux anciens `if` orphelins qui empêchaient le branchement du bouton ;
+- `Tout afficher` et `Tout masquer` sont désormais branchés indépendamment ;
+- normalisation des IDs de motifs ;
+- confirmation visuelle après affichage/masquage global.
