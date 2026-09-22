@@ -992,3 +992,6 @@ body.sidebar-collapsed .nav-lock{position:absolute;right:5px;top:5px;font-size:9
 
 /* V6.38 — option alertes du rapport */
 .report-alert-option{display:inline-flex;align-items:center;gap:7px;padding:0 10px;height:38px;border:1px solid #d6deea;border-radius:9px;background:#fff;color:#475467;font-size:12px;font-weight:700;white-space:nowrap}.report-alert-option input{accent-color:#2563eb}
+
+/* V6.40 — prévisualisation rapport responsive */
+.report-preview-modal .modal-actions.report-modal-actions{position:static;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;padding:12px 18px;background:#fff;border-top:1px solid var(--border);z-index:2}.report-preview-body{overflow:hidden}.report-preview-body iframe{display:block}.report-preview-modal .modal-head{flex:0 0 auto}.report-modal-actions .report-alert-option{margin-right:auto}.report-modal-actions .report-alert-option+.report-alert-option{margin-right:0}@media(max-width:800px){.report-modal-actions .report-alert-option{width:100%;margin-right:0}.report-modal-actions .btn{flex:1 1 160px}}
