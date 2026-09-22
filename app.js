@@ -1,4 +1,4 @@
-const APP_VERSION="V6.42";
+const APP_VERSION="V6.43";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -609,15 +609,28 @@ async function csvImport(){let a=S.csvAnalysis;if(!a||a.rows.some(x=>x.bad))thro
 /* V6.35 — rapport HTML intégré, imprimable par équipe et période */
 function teamLabel(id){const t=teamRef(id);return t?(t.Libelle||t.Code||`Équipe ${id}`):"Sans équipe"}
 function renderReportTeams(){const el=$("reportTeam");if(!el)return;const current=el.value;el.innerHTML='<option value="">Toutes les équipes</option>'+S.teams.slice().sort((a,b)=>String(a.Libelle||a.Code||"").localeCompare(String(b.Libelle||b.Code||""),"fr")).map(t=>`<option value="${t.id}">${esc(t.Libelle||t.Code||("Équipe "+t.id))}</option>`).join("");if([...el.options].some(o=>o.value===current))el.value=current}
-function renderReportMotifs(){
- const el=$("reportMotifs");if(!el)return;
- const previous=new Set([...el.querySelectorAll("input:checked")].map(x=>String(x.value)));
- const had=el.querySelectorAll("input").length>0;
- const items=S.motifs.filter(m=>m.Actif!==false).slice().sort((a,b)=>String(a.Code||"").localeCompare(String(b.Code||""),"fr"));
- el.innerHTML=items.map(m=>`<label class="report-motif-choice" title="${esc(m.Libelle||m.Code||"")}"><input type="checkbox" value="${esc(m.Code||"")}" ${!had||previous.has(String(m.Code||""))?"checked":""}> <b>${esc(m.Code||"?")}</b>${m.Libelle?`<span>${esc(m.Libelle)}</span>`:""}</label>`).join("");
+function reportMotifItems(){return S.motifs.filter(m=>m.Actif!==false).slice().sort((a,b)=>String(a.Code||"").localeCompare(String(b.Code||""),"fr"))}
+function updateReportMotifsSummary(){
+ const selected=selectedReportMotifs(),total=reportMotifItems().length,summary=$("reportMotifsSummary"),count=$("reportMotifsModalCount");
+ if(summary)summary.textContent=`Motifs sélectionnés : ${selected.size}/${total}`;
+ if(count)count.textContent=`${selected.size} motif${selected.size>1?"s":""} sélectionné${selected.size>1?"s":""} sur ${total}`;
 }
+function renderReportMotifs(){
+ const store=$("reportMotifs");if(!store)return;
+ const previous=new Set([...store.querySelectorAll("input:checked")].map(x=>String(x.value))),had=store.querySelectorAll("input").length>0,items=reportMotifItems();
+ store.innerHTML=items.map(m=>`<input type="checkbox" value="${esc(m.Code||"")}" ${!had||previous.has(String(m.Code||""))?"checked":""}>`).join("");
+ renderReportMotifPicker();updateReportMotifsSummary();
+}
+function renderReportMotifPicker(){
+ const picker=$("reportMotifsPicker");if(!picker)return;const selected=selectedReportMotifs();
+ picker.innerHTML=reportMotifItems().map(m=>`<label class="report-motif-choice" title="${esc(m.Libelle||m.Code||"")}"><input type="checkbox" value="${esc(m.Code||"")}" ${selected.has(String(m.Code||""))?"checked":""}> <span class="report-motif-code">${esc(m.Code||"?")}</span><span class="report-motif-label">${esc(m.Libelle||m.Code||"")}</span></label>`).join("");
+ picker.querySelectorAll("input").forEach(x=>x.onchange=()=>{syncReportMotifsFromPicker();updateReportMotifsSummary()});
+}
+function syncReportMotifsFromPicker(){const chosen=new Set([...document.querySelectorAll("#reportMotifsPicker input:checked")].map(x=>String(x.value)));document.querySelectorAll("#reportMotifs input").forEach(x=>x.checked=chosen.has(String(x.value)))}
 function selectedReportMotifs(){const boxes=[...document.querySelectorAll("#reportMotifs input[type=checkbox]")];return new Set(boxes.filter(x=>x.checked).map(x=>String(x.value)))}
-function setAllReportMotifs(on){document.querySelectorAll("#reportMotifs input[type=checkbox]").forEach(x=>x.checked=on)}
+function setAllReportMotifs(on){document.querySelectorAll("#reportMotifs input[type=checkbox],#reportMotifsPicker input[type=checkbox]").forEach(x=>x.checked=on);updateReportMotifsSummary()}
+function openReportMotifs(){renderReportMotifPicker();updateReportMotifsSummary();const m=$("reportMotifsModal");if(m)m.hidden=false}
+function closeReportMotifs(){syncReportMotifsFromPicker();updateReportMotifsSummary();const m=$("reportMotifsModal");if(m)m.hidden=true}
 function reportScope(){
  const from=$("from")?.value||"",to=$("to")?.value||"",teamId=Number($("reportTeam")?.value||0);
  const people=activeTeam().filter(p=>!teamId||Number(p.equipe)===teamId),ids=new Set(people.map(p=>p.id));
@@ -1396,7 +1409,7 @@ function nav(){
     if(requested==="alertesAnnuelles"&&S.annualAlertsAllowed)renderAnnualAlerts();if(requested==="alertes"&&S.alertsAllowed)list($("allAlerts"),S.alerts||[])
   })
 }
-defaults();initSidebar();nav();updateSensitiveNavState();checkSensitiveAlertsAccess();if($("refreshAccessDiagnostic"))$("refreshAccessDiagnostic").onclick=()=>{S.alertsAdminChecked=false;if($("accessDiagnostic"))$("accessDiagnostic").textContent="Contrôle en cours…";checkSensitiveAlertsAccess()};if($("annualAlertYear"))$("annualAlertYear").onchange=renderAnnualAlerts;["from","to","person"].forEach(id=>$(id).onchange=pilotage);if($("reportMotifsAll"))$("reportMotifsAll").onclick=()=>setAllReportMotifs(true);if($("reportMotifsNone"))$("reportMotifsNone").onclick=()=>setAllReportMotifs(false);if($("printHtmlReport"))$("printHtmlReport").onclick=generateHtmlReport;if($("exportHtmlReportDirect"))$("exportHtmlReportDirect").onclick=exportDynamicHtmlReport;if($("closeHtmlReport"))$("closeHtmlReport").onclick=closeHtmlReport;if($("cancelHtmlReport"))$("cancelHtmlReport").onclick=closeHtmlReport;if($("printHtmlReportFrame"))$("printHtmlReportFrame").onclick=printHtmlReportFrame;if($("exportHtmlReport"))$("exportHtmlReport").onclick=()=>exportDynamicHtmlReport(true);if($("previewReconcile"))$("previewReconcile").onclick=previewReconcile;if($("reconcileSource"))$("reconcileSource").onchange=previewReconcile;if($("reconcileTarget"))$("reconcileTarget").onchange=previewReconcile;if($("runReconcile"))$("runReconcile").onclick=()=>runReconcile().catch(e=>notify(e.message||e));$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
+defaults();initSidebar();nav();updateSensitiveNavState();checkSensitiveAlertsAccess();if($("refreshAccessDiagnostic"))$("refreshAccessDiagnostic").onclick=()=>{S.alertsAdminChecked=false;if($("accessDiagnostic"))$("accessDiagnostic").textContent="Contrôle en cours…";checkSensitiveAlertsAccess()};if($("annualAlertYear"))$("annualAlertYear").onchange=renderAnnualAlerts;["from","to","person"].forEach(id=>$(id).onchange=pilotage);if($("openReportMotifs"))$("openReportMotifs").onclick=openReportMotifs;if($("closeReportMotifs"))$("closeReportMotifs").onclick=closeReportMotifs;if($("applyReportMotifs"))$("applyReportMotifs").onclick=closeReportMotifs;if($("reportMotifsAll"))$("reportMotifsAll").onclick=()=>setAllReportMotifs(true);if($("reportMotifsNone"))$("reportMotifsNone").onclick=()=>setAllReportMotifs(false);if($("printHtmlReport"))$("printHtmlReport").onclick=generateHtmlReport;if($("exportHtmlReportDirect"))$("exportHtmlReportDirect").onclick=exportDynamicHtmlReport;if($("closeHtmlReport"))$("closeHtmlReport").onclick=closeHtmlReport;if($("cancelHtmlReport"))$("cancelHtmlReport").onclick=closeHtmlReport;if($("printHtmlReportFrame"))$("printHtmlReportFrame").onclick=printHtmlReportFrame;if($("exportHtmlReport"))$("exportHtmlReport").onclick=()=>exportDynamicHtmlReport(true);if($("previewReconcile"))$("previewReconcile").onclick=previewReconcile;if($("reconcileSource"))$("reconcileSource").onchange=previewReconcile;if($("reconcileTarget"))$("reconcileTarget").onchange=previewReconcile;if($("runReconcile"))$("runReconcile").onclick=()=>runReconcile().catch(e=>notify(e.message||e));$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
 $("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=previousHalfMonth;$("nextMonth").onclick=nextHalfMonth;$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
 $("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});
 $("resetCsv").onclick=resetCsvImport;csvSetup();
