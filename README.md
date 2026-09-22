@@ -531,3 +531,9 @@ Interface :
 - `Tout afficher` et `Tout masquer` sont désormais branchés indépendamment ;
 - normalisation des IDs de motifs ;
 - confirmation visuelle après affichage/masquage global.
+
+
+## V6.41 — correction export des alertes
+- la prévisualisation respecte désormais exactement la case « Inclure les alertes » du Cockpit ;
+- si la case est décochée, aucune donnée d’alerte n’est embarquée dans le HTML exporté ;
+- le même comportement s’applique à l’export direct et à l’export depuis la prévisualisation.
