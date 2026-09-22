@@ -976,3 +976,7 @@ body.sidebar-collapsed .nav-lock{position:absolute;right:5px;top:5px;font-size:9
 
 .access-diagnostic-logs{margin-top:0}
 #logs code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em}
+
+/* V6.34 — rapport HTML & réconciliation */
+.report-html-btn{white-space:nowrap;align-self:end}
+.reconcile-card{margin-top:14px}.reconcile-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) auto minmax(220px,1fr) auto auto;gap:10px;align-items:end}.reconcile-arrow{align-self:center;font-size:22px;color:var(--muted);padding-top:18px}.reconcile-preview{margin-top:14px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:#f8fafc;color:#475569;font-size:12px}.reconcile-preview p{margin:10px 0 0}.reconcile-stats{display:flex;gap:10px;flex-wrap:wrap}.reconcile-stats span{background:#fff;border:1px solid var(--border);border-radius:999px;padding:6px 10px}.danger-text{color:#b42318!important;border-color:#fecaca!important;background:#fff0f0!important}@media(max-width:1000px){.reconcile-toolbar{grid-template-columns:1fr 1fr}.reconcile-arrow{display:none}.reconcile-toolbar .btn{width:100%}}@media(max-width:650px){.reconcile-toolbar{grid-template-columns:1fr}}
