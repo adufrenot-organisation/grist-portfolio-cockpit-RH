@@ -977,6 +977,10 @@ body.sidebar-collapsed .nav-lock{position:absolute;right:5px;top:5px;font-size:9
 .access-diagnostic-logs{margin-top:0}
 #logs code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em}
 
-/* V6.34 — rapport HTML & réconciliation */
+/* V6.35 — rapport HTML intégré & réconciliation */
 .report-html-btn{white-space:nowrap;align-self:end}
 .reconcile-card{margin-top:14px}.reconcile-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) auto minmax(220px,1fr) auto auto;gap:10px;align-items:end}.reconcile-arrow{align-self:center;font-size:22px;color:var(--muted);padding-top:18px}.reconcile-preview{margin-top:14px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:#f8fafc;color:#475569;font-size:12px}.reconcile-preview p{margin:10px 0 0}.reconcile-stats{display:flex;gap:10px;flex-wrap:wrap}.reconcile-stats span{background:#fff;border:1px solid var(--border);border-radius:999px;padding:6px 10px}.danger-text{color:#b42318!important;border-color:#fecaca!important;background:#fff0f0!important}@media(max-width:1000px){.reconcile-toolbar{grid-template-columns:1fr 1fr}.reconcile-arrow{display:none}.reconcile-toolbar .btn{width:100%}}@media(max-width:650px){.reconcile-toolbar{grid-template-columns:1fr}}
+
+/* V6.35 — le rapport est séparé des filtres Cockpit pour éviter de comprimer les motifs */
+.report-launcher{display:grid;grid-template-columns:minmax(280px,1fr) minmax(190px,260px) auto;gap:14px;align-items:end;margin-bottom:15px;padding:14px 16px}
+.report-launcher-copy{display:grid;gap:4px;align-self:center}.report-launcher-copy strong{font-size:13px;color:var(--text)}.report-launcher-copy span{font-size:11px;color:var(--muted);line-height:1.4}.report-launcher label{min-width:0}.report-preview-modal{width:min(1180px,96vw);height:min(860px,92vh);display:flex;flex-direction:column}.report-preview-body{flex:1;min-height:0;padding:0 18px 4px}.report-preview-body iframe{width:100%;height:100%;min-height:560px;border:1px solid var(--border);border-radius:12px;background:#fff}.report-preview-modal .modal-actions{flex:0 0 auto}@media(max-width:800px){.report-launcher{grid-template-columns:1fr}.report-launcher .btn{width:100%}.report-preview-modal{height:94vh}.report-preview-body iframe{min-height:480px}}
