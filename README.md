@@ -537,3 +537,7 @@ Interface :
 - la prévisualisation respecte désormais exactement la case « Inclure les alertes » du Cockpit ;
 - si la case est décochée, aucune donnée d’alerte n’est embarquée dans le HTML exporté ;
 - le même comportement s’applique à l’export direct et à l’export depuis la prévisualisation.
+
+
+## V6.44
+Correction du sélecteur de motifs : la grille est totalement retirée du layout Cockpit et n’apparaît que dans une modale centrée après clic sur « Choisir les motifs ». Compteur initialisé au chargement.
