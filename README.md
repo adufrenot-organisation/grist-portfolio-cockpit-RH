@@ -592,3 +592,10 @@ Correction du sélecteur de motifs : la grille est totalement retirée du layout
 - Correction du bootstrap : l'onglet Demandes RH reste visible aux Admin/PMO/Manager autorisés même si les tables n'existent pas encore.
 - L'écran d'initialisation peut donc afficher le bouton `Créer les tables`.
 - Une fois les tables créées, le périmètre manager continue d'être déterminé par `Managers_Equipes`.
+
+
+## V6.52 — correction menu Demandes RH
+- L’entrée Demandes RH n’est plus masquée dans le HTML au chargement.
+- Elle reste visible pendant l’initialisation du contexte utilisateur.
+- Un administrateur conserve toujours l’accès au module, y compris avant création des tables.
+- Le filtrage Manager/PMO intervient après initialisation.
