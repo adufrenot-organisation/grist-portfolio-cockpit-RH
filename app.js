@@ -1,5 +1,5 @@
-const APP_VERSION="V6.49";
-const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
+const APP_VERSION="V6.50";
+const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH",managers:"Managers_Equipes",requests:"Demandes_RH"};
 
 function gristRows(data, tableName="") {
   if (Array.isArray(data)) return data;
@@ -19,7 +19,7 @@ function gristRows(data, tableName="") {
   }
   return rows;
 }
-const S={team:[],teams:[],motifs:[],presence:[],params:[],userScope:{ready:false,isAdmin:false,email:"",teamIds:new Set()},visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAllowed:false,annualAlertsAllowed:false,logsAllowed:false,alertsAdminChecked:false,alertAccessReason:"",accessDiagnostics:{},halfMonth:(new Date().getDate()<=15?1:2)};
+const S={team:[],teams:[],motifs:[],presence:[],params:[],userScope:{ready:false,isAdmin:false,email:"",teamIds:new Set()},visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAllowed:false,annualAlertsAllowed:false,logsAllowed:false,alertsAdminChecked:false,alertAccessReason:"",accessDiagnostics:{},halfMonth:(new Date().getDate()<=15?1:2),managers:[],requests:[],requestsTablesReady:false,requestsAllowed:false,managedTeamIds:new Set()};
 const $=id=>document.getElementById(id),num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d,esc=(s="")=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const date=v=>typeof v==="number"?new Date(v*1000):Array.isArray(v)&&v[0]==="D"?new Date(v[1]*1000):new Date(v);
 const iso=v=>{const d=date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
@@ -191,7 +191,9 @@ async function load(){
     $("sync").textContent=`Synchronisé · Ressources ${S.team.length} · Présences ${S.presence.length}`;
     await loadLocks();
     await initUserTeamScope();
+    await loadRequestsModule();
     render();
+    renderRequestsModule();
     if (!S.team.length) notify("La table Team est vide : aucune ressource à afficher");
   } catch(e) {
     console.error(e);
@@ -1165,6 +1167,123 @@ async function initializeCalendar(){
 }
 
 
+
+function requestStatus(v){return normAccess(v||"EN_ATTENTE")}
+function requestDate(v){try{return iso(v)}catch(_){return ""}}
+function requestPersonId(r){return gristRefId(r?.Demandeur??r?.Ressource??r?.Collaborateur)}
+function requestTeamId(r){return gristRefId(r?.Equipe??r?.Team)}
+function requestManagerId(r){return gristRefId(r?.Manager)}
+function currentTeamRecord(){
+  const email=String(S.userScope?.email||"").toLowerCase();
+  return S.team.find(r=>teamEmail(r)===email)||null
+}
+function roleAllowsRequests(){
+  if(S.userScope?.isAdmin)return true;
+  const me=currentTeamRecord();
+  const role=normAccess(me?.role??me?.Role??me?.Profil??me?.Fonction??"");
+  return role.includes("PMO")||role.includes("MANAGER")||role.includes("RESPONSABLE")
+}
+async function loadRequestsModule(){
+  try{
+    const tables=await grist.docApi.listTables();
+    S.requestsTablesReady=tables.includes(T.managers)&&tables.includes(T.requests);
+    if(!S.requestsTablesReady){
+      S.managers=[];S.requests=[];S.managedTeamIds=new Set();
+      S.requestsAllowed=!!S.userScope?.isAdmin;
+      updateRequestsNav();
+      return
+    }
+    const [m,d]=await Promise.all([grist.docApi.fetchTable(T.managers),grist.docApi.fetchTable(T.requests)]);
+    S.managers=gristRows(m,T.managers);S.requests=gristRows(d,T.requests);
+    const me=currentTeamRecord(),meId=Number(me?.id||0),email=String(S.userScope?.email||"").toLowerCase();
+    const managed=new Set();
+    S.managers.filter(x=>x.Actif!==false).forEach(x=>{
+      const mid=gristRefId(x.Manager);
+      const memail=String(x.Manager_Email||x.Email||"").trim().toLowerCase();
+      if((meId&&mid===meId)||(email&&memail===email)) {
+        const tid=gristRefId(x.Equipe); if(tid)managed.add(Number(tid));
+      }
+    });
+    S.managedTeamIds=managed;
+    S.requestsAllowed=!!S.userScope?.isAdmin||roleAllowsRequests()||managed.size>0;
+    updateRequestsNav()
+  }catch(e){
+    console.warn("Demandes RH",e);S.requestsAllowed=false;updateRequestsNav()
+  }
+}
+function updateRequestsNav(){
+  const b=document.querySelector('.nav-item[data-view="demandesRH"]');
+  if(!b)return;
+  b.hidden=!S.requestsAllowed&&!S.userScope?.isAdmin;
+}
+function requestsInScope(){
+  if(S.userScope?.isAdmin)return S.requests||[];
+  return (S.requests||[]).filter(r=>S.managedTeamIds.has(Number(requestTeamId(r)||0)))
+}
+function renderRequestsModule(){
+  const root=$("demandesRH");if(!root)return;
+  const setup=$("requestsSetup"),content=$("requestsContent"),denied=$("requestsDenied");
+  if(!S.requestsTablesReady){
+    if(setup)setup.hidden=false;if(content)content.hidden=true;if(denied)denied.hidden=true;
+    const btn=$("createRequestsTables");if(btn)btn.hidden=!S.userScope?.isAdmin;
+    return
+  }
+  if(setup)setup.hidden=true;
+  if(!S.requestsAllowed){
+    if(content)content.hidden=true;if(denied)denied.hidden=false;return
+  }
+  if(denied)denied.hidden=true;if(content)content.hidden=false;
+  const rows=requestsInScope().slice().sort((a,b)=>String(requestDate(b.Date_Demande)).localeCompare(String(requestDate(a.Date_Demande))));
+  const pending=rows.filter(r=>requestStatus(r.Statut)==="EN_ATTENTE");
+  if($("requestsPendingCount"))$("requestsPendingCount").textContent=String(pending.length);
+  if($("requestsTotalCount"))$("requestsTotalCount").textContent=String(rows.length);
+  const body=$("requestsBody");if(!body)return;
+  body.innerHTML=rows.length?rows.map(r=>{
+    const p=resource(requestPersonId(r)),team=teamRef(requestTeamId(r));
+    const st=requestStatus(r.Statut),can=st==="EN_ATTENTE";
+    return `<tr data-id="${r.id}">
+      <td><strong>${esc(r.Reference||("DRH-"+r.id))}</strong></td>
+      <td>${esc(p?.nom||r.Demandeur_Nom||"—")}</td>
+      <td>${esc(team?.Libelle||team?.Code||"—")}</td>
+      <td>${esc(r.Type||"CONGE")}</td>
+      <td>${esc(requestDate(r.Date_Debut))}${requestDate(r.Date_Fin)&&requestDate(r.Date_Fin)!==requestDate(r.Date_Debut)?" → "+esc(requestDate(r.Date_Fin)):""}</td>
+      <td><span class="badge">${esc(st.replaceAll("_"," "))}</span></td>
+      <td>${esc(r.Commentaire_Demandeur||"")}</td>
+      <td class="request-actions">${can?`<button class="btn primary req-approve" data-id="${r.id}">Valider</button><button class="btn secondary req-refuse" data-id="${r.id}">Refuser</button>`:""}</td>
+    </tr>`
+  }).join(""):'<tr><td colspan="8" class="empty">Aucune demande pour les équipes que vous gérez.</td></tr>';
+  body.querySelectorAll(".req-approve").forEach(b=>b.onclick=()=>decideRequest(Number(b.dataset.id),"VALIDEE"));
+  body.querySelectorAll(".req-refuse").forEach(b=>b.onclick=()=>decideRequest(Number(b.dataset.id),"REFUSEE"));
+}
+async function decideRequest(id,status){
+  const r=S.requests.find(x=>Number(x.id)===Number(id));if(!r)return;
+  if(!S.userScope?.isAdmin&&!S.managedTeamIds.has(Number(requestTeamId(r)||0)))return notify("Demande hors de votre périmètre.");
+  const label=status==="VALIDEE"?"valider":"refuser";
+  if(!window.confirm(`${label[0].toUpperCase()+label.slice(1)} la demande ${r.Reference||("#"+id)} ?`))return;
+  const me=currentTeamRecord();
+  await grist.getTable(T.requests).update({id,fields:{Statut:status,Manager:me?.id||null,Date_Decision:Math.floor(Date.now()/1000)}});
+  await loadRequestsModule();renderRequestsModule();notify(status==="VALIDEE"?"Demande validée":"Demande refusée")
+}
+async function createRequestsTables(){
+  if(!S.userScope?.isAdmin)return notify("Création réservée à l’administrateur.");
+  const btn=$("createRequestsTables");if(btn){btn.disabled=true;btn.textContent="Création…"}
+  try{
+    const tables=await grist.docApi.listTables(),actions=[];
+    if(!tables.includes(T.managers))actions.push(["AddTable",T.managers,[
+      {id:"Equipe",type:"Ref:Team_ref"},{id:"Manager",type:"Ref:Team"},{id:"Manager_Email",type:"Text"},{id:"Actif",type:"Bool"},{id:"Commentaire",type:"Text"}
+    ]]);
+    if(!tables.includes(T.requests))actions.push(["AddTable",T.requests,[
+      {id:"Reference",type:"Text"},{id:"Demandeur",type:"Ref:Team"},{id:"Equipe",type:"Ref:Team_ref"},{id:"Type",type:"Text"},
+      {id:"Date_Debut",type:"Date"},{id:"Date_Fin",type:"Date"},{id:"Motif",type:"Ref:Motifs_RH"},{id:"Statut",type:"Text"},
+      {id:"Manager",type:"Ref:Team"},{id:"Commentaire_Demandeur",type:"Text"},{id:"Commentaire_Manager",type:"Text"},
+      {id:"Date_Demande",type:"DateTime"},{id:"Date_Decision",type:"DateTime"},{id:"UUID_Demande",type:"Text"}
+    ]]);
+    if(actions.length)await grist.docApi.applyUserActions(actions);
+    await loadRequestsModule();renderRequestsModule();notify("Tables Demandes RH créées")
+  }catch(e){console.error(e);notify(e.message||String(e))}
+  finally{if(btn){btn.disabled=false;btn.textContent="Créer les tables"}}
+}
+
 function setSidebarCollapsed(collapsed){
   document.body.classList.toggle("sidebar-collapsed",collapsed);
   const btn=$("sidebarToggle");
@@ -1423,6 +1542,7 @@ function sensitiveViewAllowed(view){
   if(view==="alertes")return !!S.alertsAllowed;
   if(view==="alertesAnnuelles")return !!S.annualAlertsAllowed;
   if(view==="logs")return !!S.logsAllowed;
+  if(view==="demandesRH")return !!S.requestsAllowed;
   return true
 }
 function nav(){
@@ -1433,7 +1553,7 @@ function nav(){
     document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
 
     const requested=b.dataset.view;
-    const sensitive=["alertes","alertesAnnuelles","logs"].includes(requested);
+    const sensitive=["alertes","alertesAnnuelles","logs","demandesRH"].includes(requested);
     if(sensitive&&!S.alertsAdminChecked)await checkSensitiveAlertsAccess();
 
     const target=sensitiveViewAllowed(requested)?requested:"alertsRestricted";
@@ -1447,17 +1567,19 @@ function nav(){
       alertesAnnuelles:["Alertes annuelles","Projection annuelle des absences et franchissements de seuils"],
       alertes:["Alertes","Alertes calculées sur les présences ouvertes selon les seuils configurés"],
       rapports:["Rapports","Synthèse des dernières saisies enregistrées"],
-      logs:["Logs","Diagnostic technique des droits d’accès aux onglets"]
+      logs:["Logs","Diagnostic technique des droits d’accès aux onglets"],
+      demandesRH:["Demandes RH","Validation des demandes des membres des équipes que vous gérez"]
     };
     const allowed=sensitiveViewAllowed(requested);
     $("title").textContent=sensitive&&!allowed?"Accès restreint":t[requested][0];
     $("subtitle").textContent=sensitive&&!allowed?"Droit requis pour cet onglet":t[requested][1];
     if(requested==="saisie")renderMassCalendar();
     if(requested==="logs"&&S.logsAllowed)renderAccessDiagnostics();
+    if(requested==="demandesRH"&&S.requestsAllowed)renderRequestsModule();
     if(requested==="alertesAnnuelles"&&S.annualAlertsAllowed)renderAnnualAlerts();if(requested==="alertes"&&S.alertsAllowed)list($("allAlerts"),S.alerts||[])
   })
 }
-defaults();initSidebar();nav();updateSensitiveNavState();initReportMotifsModal();checkSensitiveAlertsAccess();if($("refreshAccessDiagnostic"))$("refreshAccessDiagnostic").onclick=()=>{S.alertsAdminChecked=false;if($("accessDiagnostic"))$("accessDiagnostic").textContent="Contrôle en cours…";checkSensitiveAlertsAccess()};if($("annualAlertYear"))$("annualAlertYear").onchange=renderAnnualAlerts;["from","to","person"].forEach(id=>$(id).onchange=pilotage);if($("openReportMotifs"))$("openReportMotifs").onclick=openReportMotifs;if($("closeReportMotifs"))$("closeReportMotifs").onclick=closeReportMotifs;if($("applyReportMotifs"))$("applyReportMotifs").onclick=closeReportMotifs;if($("reportMotifsAll"))$("reportMotifsAll").onclick=()=>setAllReportMotifs(true);if($("reportMotifsNone"))$("reportMotifsNone").onclick=()=>setAllReportMotifs(false);if($("printHtmlReport"))$("printHtmlReport").onclick=generateHtmlReport;if($("exportHtmlReportDirect"))$("exportHtmlReportDirect").onclick=exportDynamicHtmlReport;if($("closeHtmlReport"))$("closeHtmlReport").onclick=closeHtmlReport;if($("cancelHtmlReport"))$("cancelHtmlReport").onclick=closeHtmlReport;if($("printHtmlReportFrame"))$("printHtmlReportFrame").onclick=printHtmlReportFrame;if($("exportHtmlReport"))$("exportHtmlReport").onclick=()=>exportDynamicHtmlReport(true);if($("previewReconcile"))$("previewReconcile").onclick=previewReconcile;if($("reconcileSource"))$("reconcileSource").onchange=previewReconcile;if($("reconcileTarget"))$("reconcileTarget").onchange=previewReconcile;if($("runReconcile"))$("runReconcile").onclick=()=>runReconcile().catch(e=>notify(e.message||e));$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
+defaults();initSidebar();nav();if($("createRequestsTables"))$("createRequestsTables").onclick=()=>createRequestsTables();updateSensitiveNavState();initReportMotifsModal();checkSensitiveAlertsAccess();if($("refreshAccessDiagnostic"))$("refreshAccessDiagnostic").onclick=()=>{S.alertsAdminChecked=false;if($("accessDiagnostic"))$("accessDiagnostic").textContent="Contrôle en cours…";checkSensitiveAlertsAccess()};if($("annualAlertYear"))$("annualAlertYear").onchange=renderAnnualAlerts;["from","to","person"].forEach(id=>$(id).onchange=pilotage);if($("openReportMotifs"))$("openReportMotifs").onclick=openReportMotifs;if($("closeReportMotifs"))$("closeReportMotifs").onclick=closeReportMotifs;if($("applyReportMotifs"))$("applyReportMotifs").onclick=closeReportMotifs;if($("reportMotifsAll"))$("reportMotifsAll").onclick=()=>setAllReportMotifs(true);if($("reportMotifsNone"))$("reportMotifsNone").onclick=()=>setAllReportMotifs(false);if($("printHtmlReport"))$("printHtmlReport").onclick=generateHtmlReport;if($("exportHtmlReportDirect"))$("exportHtmlReportDirect").onclick=exportDynamicHtmlReport;if($("closeHtmlReport"))$("closeHtmlReport").onclick=closeHtmlReport;if($("cancelHtmlReport"))$("cancelHtmlReport").onclick=closeHtmlReport;if($("printHtmlReportFrame"))$("printHtmlReportFrame").onclick=printHtmlReportFrame;if($("exportHtmlReport"))$("exportHtmlReport").onclick=()=>exportDynamicHtmlReport(true);if($("previewReconcile"))$("previewReconcile").onclick=previewReconcile;if($("reconcileSource"))$("reconcileSource").onchange=previewReconcile;if($("reconcileTarget"))$("reconcileTarget").onchange=previewReconcile;if($("runReconcile"))$("runReconcile").onclick=()=>runReconcile().catch(e=>notify(e.message||e));$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
 $("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=previousHalfMonth;$("nextMonth").onclick=nextHalfMonth;$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
 $("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});
 $("resetCsv").onclick=resetCsvImport;csvSetup();

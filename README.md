@@ -579,3 +579,11 @@ Correction du sélecteur de motifs : la grille est totalement retirée du layout
 - Une seule équipe : sélection automatique ; plusieurs équipes : uniquement les équipes autorisées.
 - Le périmètre s'applique aux ressources, à la feuille de présence, aux traitements de masse et aux rapports.
 - Les rôles ADMIN / ADMIN_RH / ADMINISTRATEUR / ADMINISTRATEUR_RH conservent toutes les équipes.
+
+## V6.50 — Demandes RH manager / PMO
+- Nouvel onglet Demandes RH réservé aux managers, PMO et administrateurs.
+- Nouvelle table `Managers_Equipes` : association équipe ↔ manager.
+- Nouvelle table `Demandes_RH` : demandes, période, motif, statut et décision.
+- Le manager ne voit que les demandes des équipes qu'il gère.
+- Actions Valider / Refuser avec date et manager de décision.
+- Cette version prépare l'étape suivante : génération automatique dans `Presences` après validation.

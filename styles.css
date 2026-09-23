@@ -1014,3 +1014,5 @@ body.sidebar-collapsed .nav-lock{position:absolute;right:5px;top:5px;font-size:9
 
 /* V6.48 — fréquence de récurrence */
 .init-recurring-frequency-grid{display:grid;grid-template-columns:minmax(220px,2fr) minmax(120px,1fr) minmax(160px,1fr);gap:10px;align-items:end}.init-recurring-frequency-grid label{margin:0}.init-recurring-frequency-grid [hidden]{display:none}@media(max-width:760px){.init-recurring-frequency-grid{grid-template-columns:1fr}}
+
+.request-actions{display:flex;gap:6px;white-space:nowrap}.request-actions .btn{padding:7px 10px}.nav-item[hidden]{display:none!important}
