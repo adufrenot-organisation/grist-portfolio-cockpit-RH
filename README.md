@@ -541,3 +541,11 @@ Interface :
 
 ## V6.44
 Correction du sélecteur de motifs : la grille est totalement retirée du layout Cockpit et n’apparaît que dans une modale centrée après clic sur « Choisir les motifs ». Compteur initialisé au chargement.
+
+
+## V6.45 — motifs RH dynamiques
+- ajout d’un bouton « + Ajouter un motif » dans Feuille de présence ;
+- création directe d’un motif dans `Motifs_RH` avec code, libellé, équivalent présence, équivalent absence et règle de capacité ;
+- tout motif actif est immédiatement proposé pour la saisie de présence, la visibilité de grille et le sélecteur de rapport ;
+- les motifs désactivés ne sont plus proposés pour de nouvelles saisies mais restent disponibles dans les rapports lorsqu’ils existent dans l’historique ;
+- les calculs Présence/Absence utilisent les coefficients `Presence_Equivalent` et `Absence_Equivalent`, ce qui permet aux nouveaux motifs de participer aux indicateurs sans modification du code.

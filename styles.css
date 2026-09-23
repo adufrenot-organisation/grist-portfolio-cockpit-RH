@@ -1007,3 +1007,11 @@ body.sidebar-collapsed .nav-lock{position:absolute;right:5px;top:5px;font-size:9
 #reportMotifsModal[hidden]{display:none!important}
 #reportMotifsModal .report-motifs-modal{margin:auto!important;width:min(820px,94vw)!important;max-height:86vh!important;background:#fff!important}
 .report-launcher #reportMotifsPicker{display:none!important}
+
+/* V6.45 — création de motifs dynamiques */
+.new-motif-modal{width:min(680px,calc(100vw - 32px));}
+.new-motif-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:8px 0 18px;}
+.new-motif-grid label{display:flex;flex-direction:column;gap:7px;font-weight:700;color:#334155;}
+.new-motif-grid input[type=text],.new-motif-grid input:not([type]) ,.new-motif-grid input[type=number]{min-height:42px;border:1px solid #cbd5e1;border-radius:10px;padding:0 12px;background:#fff;}
+.new-motif-grid .check{grid-column:1/-1;flex-direction:row;align-items:center;font-weight:600;}
+@media(max-width:700px){.new-motif-grid{grid-template-columns:1fr;}.new-motif-grid .check{grid-column:auto;}}
