@@ -1,4 +1,4 @@
-const APP_VERSION="V6.52";
+const APP_VERSION="V6.53";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH",managers:"Managers_Equipes",requests:"Demandes_RH"};
 
 function gristRows(data, tableName="") {
@@ -1217,10 +1217,8 @@ async function loadRequestsModule(){
 function updateRequestsNav(){
   const b=document.querySelector('.nav-item[data-view="demandesRH"]');
   if(!b)return;
-  // L'entrée reste visible tant que le contexte utilisateur n'est pas initialisé.
-  if(!S.userScope?.ready){b.hidden=false;return}
-  const canBootstrap=!S.requestsTablesReady&&(!!S.userScope?.isAdmin||roleAllowsRequests());
-  b.hidden=!(!!S.userScope?.isAdmin||S.requestsAllowed||canBootstrap);
+  // Entrée native permanente : les droits sont contrôlés à l'ouverture du module.
+  b.hidden=false;
 }
 function requestsInScope(){
   if(S.userScope?.isAdmin)return S.requests||[];
@@ -1548,7 +1546,7 @@ function sensitiveViewAllowed(view){
   if(view==="alertes")return !!S.alertsAllowed;
   if(view==="alertesAnnuelles")return !!S.annualAlertsAllowed;
   if(view==="logs")return !!S.logsAllowed;
-  if(view==="demandesRH")return !!S.userScope?.isAdmin||!!S.requestsAllowed||(!S.requestsTablesReady&&roleAllowsRequests());
+  if(view==="demandesRH")return true;
   return true
 }
 function nav(){

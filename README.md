@@ -599,3 +599,9 @@ Correction du sélecteur de motifs : la grille est totalement retirée du layout
 - Elle reste visible pendant l’initialisation du contexte utilisateur.
 - Un administrateur conserve toujours l’accès au module, y compris avant création des tables.
 - Le filtrage Manager/PMO intervient après initialisation.
+
+## V6.53 — Demandes RH comme onglet natif
+- `Demandes RH` est désormais une entrée permanente du menu, comme Planning ou Rapports.
+- L'entrée n'est plus masquée par la logique d'autorisation.
+- Les droits sont contrôlés à l'ouverture : écran d'initialisation, contenu manager/PMO/admin ou message d'accès refusé.
+- Cela garantit que l'administrateur peut toujours atteindre `Créer les tables`.
