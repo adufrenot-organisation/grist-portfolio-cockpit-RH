@@ -1,4 +1,4 @@
-const APP_VERSION="V6.54";
+const APP_VERSION="V6.55";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH",managers:"Managers_Equipes",requests:"Demandes_RH"};
 
 function gristRows(data, tableName="") {
@@ -1205,7 +1205,8 @@ async function loadRequestsModule(){
       }
     });
     S.managedTeamIds=managed;
-    S.requestsAllowed=!!S.userScope?.isAdmin||roleAllowsRequests()||managed.size>0;
+    const profil=teamProfil(me);
+    S.requestsAllowed=!!S.userScope?.isAdmin||((profil==="MANAGER"||profil==="PMO")&&managed.size>0);
     updateRequestsNav()
   }catch(e){
     console.warn("Demandes RH",e);S.requestsAllowed=false;updateRequestsNav()
@@ -1219,6 +1220,8 @@ function updateRequestsNav(){
 }
 function requestsInScope(){
   if(S.userScope?.isAdmin)return S.requests||[];
+  const profil=teamProfil(currentTeamRecord());
+  if(profil!=="MANAGER"&&profil!=="PMO")return [];
   return (S.requests||[]).filter(r=>S.managedTeamIds.has(Number(requestTeamId(r)||0)))
 }
 function renderRequestsModule(){
@@ -1258,10 +1261,12 @@ function renderRequestsModule(){
 }
 async function decideRequest(id,status){
   const r=S.requests.find(x=>Number(x.id)===Number(id));if(!r)return;
-  if(!S.userScope?.isAdmin&&!S.managedTeamIds.has(Number(requestTeamId(r)||0)))return notify("Demande hors de votre périmètre.");
+  const me=currentTeamRecord(),profil=teamProfil(me);
+  const inScope=S.managedTeamIds.has(Number(requestTeamId(r)||0));
+  if(!S.userScope?.isAdmin&&!((profil==="MANAGER"||profil==="PMO")&&inScope))return notify("Demande hors de votre périmètre.");
+  if(requestStatus(r.Statut)!=="EN_ATTENTE")return notify("Cette demande a déjà été traitée.");
   const label=status==="VALIDEE"?"valider":"refuser";
   if(!window.confirm(`${label[0].toUpperCase()+label.slice(1)} la demande ${r.Reference||("#"+id)} ?`))return;
-  const me=currentTeamRecord();
   await grist.getTable(T.requests).update({id,fields:{Statut:status,Manager:me?.id||null,Date_Decision:Math.floor(Date.now()/1000)}});
   await loadRequestsModule();renderRequestsModule();notify(status==="VALIDEE"?"Demande validée":"Demande refusée")
 }
@@ -1569,7 +1574,7 @@ function nav(){
       alertes:["Alertes","Alertes calculées sur les présences ouvertes selon les seuils configurés"],
       rapports:["Rapports","Synthèse des dernières saisies enregistrées"],
       logs:["Logs","Diagnostic technique des droits d’accès aux onglets"],
-      demandesRH:["Demandes RH","Validation des demandes des membres des équipes que vous gérez"]
+      demandesRH:["Demandes RH","ADMIN : toutes les demandes · MANAGER/PMO : équipes affectées dans Managers_Equipes"]
     };
     const allowed=sensitiveViewAllowed(requested);
     $("title").textContent=sensitive&&!allowed?"Accès restreint":t[requested][0];

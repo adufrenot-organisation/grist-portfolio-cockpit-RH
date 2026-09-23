@@ -613,3 +613,11 @@ Correction du sélecteur de motifs : la grille est totalement retirée du layout
 - `Profil = MANAGER` : profil manager.
 - Les anciennes déductions via `Role`, `Fonction`, `Profile`, etc. sont retirées des contrôles ajoutés récemment.
 - `Managers_Equipes` reste la source du périmètre d'équipes gérées par un manager.
+
+## V6.55 — Workflow Manager / PMO
+- ADMIN : vision globale des demandes.
+- MANAGER / PMO : uniquement les demandes des équipes affectées activement dans Managers_Equipes.
+- Team.Profil reste la référence unique du rôle fonctionnel.
+- Valider / Refuser revérifie le périmètre au clic.
+- Une demande déjà traitée ne peut pas être retraitée.
+- Aucune écriture automatique dans Presences à ce stade.
