@@ -565,3 +565,11 @@ Correction du sélecteur de motifs : la grille est totalement retirée du layout
 - prévisualisation des créations, mises à jour, dates verrouillées ignorées et saisies existantes conservées ;
 - les périodes verrouillées restent protégées ;
 - en création uniquement, aucune saisie existante n’est écrasée ; en création / modification, seules les dates correspondant à la récurrence sont modifiées.
+
+
+## V6.48 — fréquence des motifs récurrents
+- Ajout des fréquences hebdomadaire, 1 semaine sur 2, toutes les 3 semaines, mensuelle, trimestrielle, semestrielle et annuelle.
+- Fréquences personnalisées toutes les X semaines ou tous les X mois.
+- Pour les fréquences mensuelles et supérieures : choix 1er / 2e / 3e / 4e / dernier jour de semaine sélectionné dans le mois cible.
+- La date de début sert d’ancrage à la récurrence.
+- Prévisualisation, protections des périodes verrouillées et modes création / modification conservés.

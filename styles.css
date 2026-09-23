@@ -1011,3 +1011,6 @@ body.sidebar-collapsed .nav-lock{position:absolute;right:5px;top:5px;font-size:9
 
 /* V6.47 — planification récurrente */
 .init-recurring-wrap{display:grid;gap:12px;padding:14px;border:1px solid var(--border);border-radius:12px;background:#f8fbfc}.init-recurring-wrap[hidden]{display:none}.init-weekdays{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.init-weekdays>span{width:100%;font-size:11px;font-weight:700;color:var(--muted)}.init-weekdays label{display:flex;align-items:center;gap:5px;padding:7px 9px;border:1px solid var(--border);border-radius:9px;background:#fff;font-size:12px}.init-recurring-help{font-size:11px;color:var(--muted)}
+
+/* V6.48 — fréquence de récurrence */
+.init-recurring-frequency-grid{display:grid;grid-template-columns:minmax(220px,2fr) minmax(120px,1fr) minmax(160px,1fr);gap:10px;align-items:end}.init-recurring-frequency-grid label{margin:0}.init-recurring-frequency-grid [hidden]{display:none}@media(max-width:760px){.init-recurring-frequency-grid{grid-template-columns:1fr}}
