@@ -1,4 +1,4 @@
-const APP_VERSION="V6.48";
+const APP_VERSION="V6.49";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -19,7 +19,7 @@ function gristRows(data, tableName="") {
   }
   return rows;
 }
-const S={team:[],teams:[],motifs:[],presence:[],params:[],visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAllowed:false,annualAlertsAllowed:false,logsAllowed:false,alertsAdminChecked:false,alertAccessReason:"",accessDiagnostics:{},halfMonth:(new Date().getDate()<=15?1:2)};
+const S={team:[],teams:[],motifs:[],presence:[],params:[],userScope:{ready:false,isAdmin:false,email:"",teamIds:new Set()},visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAllowed:false,annualAlertsAllowed:false,logsAllowed:false,alertsAdminChecked:false,alertAccessReason:"",accessDiagnostics:{},halfMonth:(new Date().getDate()<=15?1:2)};
 const $=id=>document.getElementById(id),num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d,esc=(s="")=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const date=v=>typeof v==="number"?new Date(v*1000):Array.isArray(v)&&v[0]==="D"?new Date(v[1]*1000):new Date(v);
 const iso=v=>{const d=date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
@@ -190,6 +190,7 @@ async function load(){
     if(!S.visible.size) S.motifs.filter(x=>x.Actif!==false).forEach(x=>S.visible.add(x.id));
     $("sync").textContent=`Synchronisé · Ressources ${S.team.length} · Présences ${S.presence.length}`;
     await loadLocks();
+    await initUserTeamScope();
     render();
     if (!S.team.length) notify("La table Team est vide : aucune ressource à afficher");
   } catch(e) {
@@ -199,7 +200,36 @@ async function load(){
     throw e;
   }
 }
-function activeTeam(){return S.team.filter(x=>x.actif!==false)}
+function resourceTeamId(r){
+  const v=r?.equipe??r?.Equipe??r?.Equipe_Id??r?.Team_ref??r?.Equipe_Ref;
+  const id=gristRefId(v);
+  return id===null?Number(v||0):Number(id)
+}
+function scopedTeams(){
+  if(!S.userScope?.ready||S.userScope.isAdmin)return S.teams;
+  return S.teams.filter(t=>S.userScope.teamIds.has(Number(t.id)))
+}
+function isResourceInUserScope(r){
+  return !S.userScope?.ready||S.userScope.isAdmin||S.userScope.teamIds.has(resourceTeamId(r))
+}
+function isAdminTeamRow(r){
+  const role=normAccess(r?.role??r?.Role??r?.Profil??r?.Profile??r?.Fonction??"");
+  return role==="ADMIN"||role==="ADMIN_RH"||role==="ADMINISTRATEUR"||role==="ADMINISTRATEUR_RH"||role.includes("ADMIN_RH")
+}
+async function initUserTeamScope(){
+  try{
+    const u=await effectiveAccessUser(),email=String(u?.email||"").trim().toLowerCase();
+    const mine=S.team.filter(r=>teamEmail(r)===email);
+    const isAdmin=mine.some(isAdminTeamRow);
+    const teamIds=new Set(mine.map(resourceTeamId).filter(id=>Number.isFinite(id)&&id>0));
+    S.userScope={ready:true,isAdmin,email,teamIds};
+    if(!isAdmin&&!teamIds.size)console.warn("[EQUIPES] Aucune équipe associée à l'utilisateur",email);
+  }catch(e){
+    console.warn("[EQUIPES] Identification impossible",e);
+    S.userScope={ready:true,isAdmin:false,email:"",teamIds:new Set()};
+  }
+}
+function activeTeam(){return S.team.filter(x=>x.actif!==false&&isResourceInUserScope(x))}
 function render(){const opts=activeTeam().sort((a,b)=>String(a.nom).localeCompare(String(b.nom))).map(x=>`<option value="${x.id}">${esc(x.nom)}</option>`).join("");$("person").innerHTML='<option value="">Toute l’équipe</option>'+opts;renderReportTeams();renderReportMotifs();renderReconcileResources();chips();pilotage();renderRecent();alerts();renderForecast();setupAnnualYears();renderAnnualAlerts();renderMassFilters();renderMassMotifs();renderMotifInfo();renderMassCalendar();renderLockBadge()}
 function chips(){$("chips").innerHTML=S.motifs.filter(x=>x.Actif!==false&&!["F","WE"].includes(x.Code)).map(x=>`<button class="chip ${S.visible.has(x.id)?"on":"off"}" data-id="${x.id}">${esc(x.Code)}</button>`).join("");$("chips").querySelectorAll("button").forEach(b=>b.onclick=()=>{const id=Number(b.dataset.id);S.visible.has(id)?S.visible.delete(id):S.visible.add(id);chips();pilotage()})}
 function selected(){const a=new Date($("from").value+"T00:00:00"),b=new Date($("to").value+"T23:59:59"),pid=Number($("person").value||0);return S.presence.filter(x=>{const d=date(x.Date);return d>=a&&d<=b&&(!pid||x.Ressource===pid)&&S.visible.has(x.Motif)})}
@@ -477,9 +507,12 @@ function renderForecast(){
   $("forecastRows").innerHTML=rr.length?rr.map(r=>`<tr><td>${date(r.Date).toLocaleDateString("fr-FR")}</td><td>${esc(resource(r.Ressource)?.nom||"")}</td><td>${esc(motif(r.Motif)?.Code||"")}</td><td>${presenceStateHtml(iso(r.Date))}</td><td>${esc(r.Commentaire||"")}</td></tr>`).join(""):'<tr><td colspan="5" class="empty">Aucune présence ouverte à venir.</td></tr>'
 }
 function motifSoftColor(code){const map={"A":["#daf2d8","#258a31"],"1/2 M":["#dcecff","#2672c5"],"1/2 AM":["#dcecff","#2672c5"],"FO":["#fff0cf","#b06d00"],"F":["#eee5fa","#7a45b2"],"WE":["#eef1f4","#4f6474"],"TE":["#d9f3f2","#12877f"],"TLE":["#d9f3f2","#12877f"],"TL":["#d9f3f2","#12877f"],"P":["#ffe0e8","#d83467"]};return map[code]||["#e8f4f3","#176b68"]}
-function renderMassFilters(){const el=$("massTeam");if(!el)return;const current=el.value;el.innerHTML='<option value="">Toutes les équipes</option>'+S.teams.map(t=>`<option value="${t.id}">${esc(t.Libelle||t.Code||"Équipe")}</option>`).join("");if([...el.options].some(o=>o.value===current))el.value=current}
+function renderMassFilters(){const el=$("massTeam");if(!el)return;const current=el.value;const teams=scopedTeams();
+const allOption=(S.userScope.isAdmin||teams.length>1)?'<option value="">Toutes les équipes autorisées</option>':"";
+el.innerHTML=allOption+teams.map(t=>`<option value="${t.id}">${esc(t.Libelle||t.Code||"Équipe")}</option>`).join("");
+if(!S.userScope.isAdmin&&teams.length===1)el.value=String(teams[0].id);if([...el.options].some(o=>o.value===current))el.value=current}
 function renderMassMotifs(){const el=$("massMotifs");if(!el)return;const usable=S.motifs.filter(m=>m.Actif!==false);if(!S.selectedMotif&&usable.length)S.selectedMotif=usable.find(m=>m.Code==="A")?.id||usable[0].id;el.innerHTML=usable.map(m=>{const [bg,fg]=motifSoftColor(m.Code);return `<button class="motif-btn ${S.selectedMotif===m.id?"active":""}" data-id="${m.id}" style="background:${bg};color:${fg}">${esc(m.Code)}<small>${esc(m.Libelle||"")}</small></button>`}).join("");el.querySelectorAll(".motif-btn").forEach(b=>b.onclick=()=>{S.selectedMotif=Number(b.dataset.id);renderMassMotifs()})}
-function massResources(){const team=Number($("massTeam").value||0),activeOnly=$("massActiveOnly").checked;return S.team.filter(r=>(!team||r.equipe===team)&&(!activeOnly||r.actif!==false)).sort((a,b)=>String(a.nom).localeCompare(String(b.nom)))}
+function massResources(){const team=Number($("massTeam").value||0),activeOnly=$("massActiveOnly").checked;return S.team.filter(r=>isResourceInUserScope(r)&&(!team||resourceTeamId(r)===team)&&(!activeOnly||r.actif!==false)).sort((a,b)=>String(a.nom).localeCompare(String(b.nom)))}
 function daysInMonth(d){const y=d.getFullYear(),m=d.getMonth(),n=new Date(y,m+1,0).getDate();return Array.from({length:n},(_,i)=>new Date(y,m,i+1))}
 function daysInCurrentHalf(d){
   const all=daysInMonth(d);
@@ -608,7 +641,10 @@ async function csvImport(){let a=S.csvAnalysis;if(!a||a.rows.some(x=>x.bad))thro
 
 /* V6.35 — rapport HTML intégré, imprimable par équipe et période */
 function teamLabel(id){const t=teamRef(id);return t?(t.Libelle||t.Code||`Équipe ${id}`):"Sans équipe"}
-function renderReportTeams(){const el=$("reportTeam");if(!el)return;const current=el.value;el.innerHTML='<option value="">Toutes les équipes</option>'+S.teams.slice().sort((a,b)=>String(a.Libelle||a.Code||"").localeCompare(String(b.Libelle||b.Code||""),"fr")).map(t=>`<option value="${t.id}">${esc(t.Libelle||t.Code||("Équipe "+t.id))}</option>`).join("");if([...el.options].some(o=>o.value===current))el.value=current}
+function renderReportTeams(){const el=$("reportTeam");if(!el)return;const current=el.value;const teams=scopedTeams().slice().sort((a,b)=>String(a.Libelle||a.Code||"").localeCompare(String(b.Libelle||b.Code||""),"fr"));
+const allOption=(S.userScope.isAdmin||teams.length>1)?'<option value="">Toutes les équipes autorisées</option>':"";
+el.innerHTML=allOption+teams.map(t=>`<option value="${t.id}">${esc(t.Libelle||t.Code||("Équipe "+t.id))}</option>`).join("");
+if(!S.userScope.isAdmin&&teams.length===1)el.value=String(teams[0].id);if([...el.options].some(o=>o.value===current))el.value=current}
 function reportMotifItems(){
   // Motifs actifs + motifs historiques déjà utilisés : un motif désactivé reste exploitable dans les rapports.
   const used=new Set(S.presence.map(r=>Number(r.Motif)).filter(Number.isFinite));
@@ -651,9 +687,9 @@ function initReportMotifsModal(){
 }
 function reportScope(){
  const from=$("from")?.value||"",to=$("to")?.value||"",teamId=Number($("reportTeam")?.value||0);
- const people=activeTeam().filter(p=>!teamId||Number(p.equipe)===teamId),ids=new Set(people.map(p=>p.id));
+ const people=activeTeam().filter(p=>!teamId||resourceTeamId(p)===teamId),ids=new Set(people.map(p=>p.id));
  const rows=S.presence.filter(r=>{const ds=iso(r.Date);return ds>=from&&ds<=to&&ids.has(Number(r.Ressource))});
- return{from,to,teamId,people,rows,label:teamId?teamLabel(teamId):"Toutes les équipes"}
+ return{from,to,teamId,people,rows,label:teamId?teamLabel(teamId):(S.userScope.isAdmin?"Toutes les équipes":"Toutes mes équipes")}
 }
 function periodAlerts(scope){
  const out=[],add=(p,l,v,dt="",personId=0)=>{const s=severity(p,v);if(s)out.push({s,l,v,u:p.Unite||"",dt,code:p.Code_Alerte||"",personId:Number(personId)||0})},team=scope.people,rr=scope.rows;

@@ -573,3 +573,9 @@ Correction du sélecteur de motifs : la grille est totalement retirée du layout
 - Pour les fréquences mensuelles et supérieures : choix 1er / 2e / 3e / 4e / dernier jour de semaine sélectionné dans le mois cible.
 - La date de début sert d’ancrage à la récurrence.
 - Prévisualisation, protections des périodes verrouillées et modes création / modification conservés.
+
+## V6.49 — périmètre équipes par utilisateur
+- Utilisateur standard : uniquement les équipes auxquelles son e-mail est rattaché dans Team.
+- Une seule équipe : sélection automatique ; plusieurs équipes : uniquement les équipes autorisées.
+- Le périmètre s'applique aux ressources, à la feuille de présence, aux traitements de masse et aux rapports.
+- Les rôles ADMIN / ADMIN_RH / ADMINISTRATEUR / ADMINISTRATEUR_RH conservent toutes les équipes.
