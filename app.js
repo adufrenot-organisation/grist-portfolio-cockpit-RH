@@ -1,4 +1,4 @@
-const APP_VERSION="V6.53";
+const APP_VERSION="V6.54";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH",managers:"Managers_Equipes",requests:"Demandes_RH"};
 
 function gristRows(data, tableName="") {
@@ -214,10 +214,8 @@ function scopedTeams(){
 function isResourceInUserScope(r){
   return !S.userScope?.ready||S.userScope.isAdmin||S.userScope.teamIds.has(resourceTeamId(r))
 }
-function isAdminTeamRow(r){
-  const role=normAccess(r?.role??r?.Role??r?.Profil??r?.Profile??r?.Fonction??"");
-  return role==="ADMIN"||role==="ADMIN_RH"||role==="ADMINISTRATEUR"||role==="ADMINISTRATEUR_RH"||role.includes("ADMIN_RH")
-}
+function teamProfil(r){return normAccess(r?.Profil||"")}
+function isAdminTeamRow(r){return teamProfil(r)==="ADMIN"}
 async function initUserTeamScope(){
   try{
     const u=await effectiveAccessUser(),email=String(u?.email||"").trim().toLowerCase();
@@ -1179,9 +1177,8 @@ function currentTeamRecord(){
 }
 function roleAllowsRequests(){
   if(S.userScope?.isAdmin)return true;
-  const me=currentTeamRecord();
-  const role=normAccess(me?.role??me?.Role??me?.Profil??me?.Fonction??"");
-  return role.includes("PMO")||role.includes("MANAGER")||role.includes("RESPONSABLE")
+  const profil=teamProfil(currentTeamRecord());
+  return profil==="PMO"||profil==="MANAGER"
 }
 async function loadRequestsModule(){
   try{

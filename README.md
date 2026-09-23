@@ -605,3 +605,11 @@ Correction du sélecteur de motifs : la grille est totalement retirée du layout
 - L'entrée n'est plus masquée par la logique d'autorisation.
 - Les droits sont contrôlés à l'ouverture : écran d'initialisation, contenu manager/PMO/admin ou message d'accès refusé.
 - Cela garantit que l'administrateur peut toujours atteindre `Créer les tables`.
+
+## V6.54 — Profil comme référence unique
+- Le rôle fonctionnel du Cockpit est désormais lu uniquement dans `Team.Profil`.
+- `Profil = ADMIN` : administrateur global.
+- `Profil = PMO` : profil PMO.
+- `Profil = MANAGER` : profil manager.
+- Les anciennes déductions via `Role`, `Fonction`, `Profile`, etc. sont retirées des contrôles ajoutés récemment.
+- `Managers_Equipes` reste la source du périmètre d'équipes gérées par un manager.
