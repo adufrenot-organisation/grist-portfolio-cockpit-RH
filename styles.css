@@ -1008,3 +1008,6 @@ body.sidebar-collapsed .nav-lock{position:absolute;right:5px;top:5px;font-size:9
 #reportMotifsModal .report-motifs-modal{margin:auto!important;width:min(820px,94vw)!important;max-height:86vh!important;background:#fff!important}
 .report-launcher #reportMotifsPicker{display:none!important}
 
+
+/* V6.47 — planification récurrente */
+.init-recurring-wrap{display:grid;gap:12px;padding:14px;border:1px solid var(--border);border-radius:12px;background:#f8fbfc}.init-recurring-wrap[hidden]{display:none}.init-weekdays{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.init-weekdays>span{width:100%;font-size:11px;font-weight:700;color:var(--muted)}.init-weekdays label{display:flex;align-items:center;gap:5px;padding:7px 9px;border:1px solid var(--border);border-radius:9px;background:#fff;font-size:12px}.init-recurring-help{font-size:11px;color:var(--muted)}

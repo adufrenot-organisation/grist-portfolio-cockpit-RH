@@ -556,3 +556,12 @@ Correction du sélecteur de motifs : la grille est totalement retirée du layout
 - la création et le paramétrage des motifs restent exclusivement dans le module Administration RH ;
 - le Cockpit continue de charger dynamiquement `Motifs_RH` pour la feuille de présence, la grille et les rapports ;
 - les motifs désactivés restent exploitables pour l’historique mais ne sont pas proposés pour de nouvelles saisies.
+
+
+## V6.47 — motif récurrent par ressource
+- ajout de deux modes dans « Initialiser / modifier une feuille de présence » : création récurrente uniquement et création / modification récurrente ;
+- choix d’un motif actif provenant dynamiquement de `Motifs_RH` ;
+- sélection libre des jours de la semaine (lundi à dimanche) sur une période déterminée ;
+- prévisualisation des créations, mises à jour, dates verrouillées ignorées et saisies existantes conservées ;
+- les périodes verrouillées restent protégées ;
+- en création uniquement, aucune saisie existante n’est écrasée ; en création / modification, seules les dates correspondant à la récurrence sont modifiées.

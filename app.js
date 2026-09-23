@@ -1,4 +1,4 @@
-const APP_VERSION="V6.46";
+const APP_VERSION="V6.47";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH"};
 
 function gristRows(data, tableName="") {
@@ -1001,57 +1001,20 @@ async function resetUserTimesheet(){
 
 
 function renderInitCalendarPeople(){const sel=$("initCalendarPerson");if(!sel)return;const current=sel.value;const people=(S.team||[]).filter(p=>p&&p.id).slice().sort((a,b)=>String(a.nom||"").localeCompare(String(b.nom||""),"fr"));sel.innerHTML='<option value="">Choisir une ressource…</option>'+people.map(p=>`<option value="${p.id}">${esc(p.nom||("Ressource "+p.id))}</option>`).join("");if([...sel.options].some(o=>o.value===current))sel.value=current}
-function renderInitCalendarMotifs(){const w=$("initWeekdayMotif"),we=$("initWeekendMotif");if(!w||!we)return;const motifs=S.motifs.filter(m=>m.Actif!==false),opts=motifs.map(m=>`<option value="${m.id}">${esc(m.Code)} — ${esc(m.Libelle||"")}</option>`).join("");w.innerHTML=opts;we.innerHTML=opts;const p=motifs.find(m=>m.Code==="P"),wem=motifs.find(m=>m.Code==="WE");if(p)w.value=String(p.id);if(wem)we.value=String(wem.id)}
+function renderInitCalendarMotifs(){const w=$("initWeekdayMotif"),we=$("initWeekendMotif"),rec=$("initRecurringMotif");if(!w||!we)return;const motifs=S.motifs.filter(m=>m.Actif!==false),opts=motifs.map(m=>`<option value="${m.id}">${esc(m.Code)} — ${esc(m.Libelle||"")}</option>`).join("");w.innerHTML=opts;we.innerHTML=opts;if(rec)rec.innerHTML=opts;const p=motifs.find(m=>m.Code==="P"),wem=motifs.find(m=>m.Code==="WE");if(p)w.value=String(p.id);if(wem)we.value=String(wem.id);if(rec&&p)rec.value=String(p.id)}
+function isRecurringCalendarAction(){return String($("initCalendarAction")?.value||"").startsWith("recurring-")}
+function recurringCalendarDays(){return new Set([...document.querySelectorAll(".init-recurring-day:checked")].map(x=>Number(x.value)))}
+function updateInitCalendarAction(){const recurring=isRecurringCalendarAction(),wrap=$("initRecurringWrap"),grid=document.querySelector(".init-motif-grid"),preserve=$("initPreserveHolidays")?.closest("label");if(wrap)wrap.hidden=!recurring;if(grid)grid.hidden=recurring;if(preserve)preserve.hidden=recurring;if(recurring&&$("initCalendarMode")?.value!=="period"){$("initCalendarMode").value="period"}const note=$("initCalendarNote");if(note)note.textContent=recurring?"Le motif récurrent est appliqué uniquement aux jours cochés dans la période. En création uniquement, les saisies existantes sont conservées. En création / modification, les dates correspondantes existantes sont remplacées. Les périodes verrouillées ne sont jamais modifiées.":"En mode Initialiser, les saisies existantes sont conservées. En mode Modifier en masse, elles sont mises à jour et les jours manquants sont créés. Les périodes verrouillées ne sont jamais modifiées.";updateInitCalendarMode()}
 function updateInitCalendarMode(){const mode=$("initCalendarMode")?.value||"year";if($("initCalendarYearWrap"))$("initCalendarYearWrap").hidden=mode!=="year";if($("initCalendarPeriodWrap"))$("initCalendarPeriodWrap").hidden=mode!=="period";updateInitCalendarPreview()}
 function initCalendarDateRange(){const mode=$("initCalendarMode")?.value||"year";if(mode==="year"){const y=Number($("initCalendarYear")?.value||0);return y?{from:`${y}-01-01`,to:`${y}-12-31`}:null}const from=$("initCalendarFrom")?.value||"",to=$("initCalendarTo")?.value||"";return from&&to&&to>=from?{from,to}:null}
 function initCalendarPlan(){
-  const rid=Number($("initCalendarPerson")?.value||0);
-  const range=initCalendarDateRange();
-  const weekdayMotif=Number($("initWeekdayMotif")?.value||0);
-  const weekendMotif=Number($("initWeekendMotif")?.value||0);
-  const action=$("initCalendarAction")?.value||"initialize";
-  const preserveF=$("initPreserveHolidays")?.checked!==false;
-
-  if(!rid||!range||!weekdayMotif||!weekendMotif){
-    return {creates:[],updates:[],locked:0,existing:0,preservedHolidays:0};
-  }
-
-  const byDate=new Map(
-    S.presence
-      .filter(r=>r.Ressource===rid)
-      .map(r=>[iso(r.Date),r])
-  );
-
-  const creates=[],updates=[];
-  let locked=0,existing=0,preservedHolidays=0;
-
-  let d=new Date(range.from+"T12:00:00");
-  const finish=new Date(range.to+"T12:00:00");
-
-  while(d<=finish){
-    const ds=iso(d);
-    const old=byDate.get(ds);
-    const desiredMotif=[0,6].includes(d.getDay())?weekendMotif:weekdayMotif;
-
-    if(isDateLocked(ds)){
-      locked++;
-    }else if(old){
-      const oldMotif=motif(old.Motif);
-      if(preserveF&&oldMotif?.Code==="F"){
-        preservedHolidays++;
-      }else if(action==="upsert"){
-        updates.push({record:old,ds,motifId:desiredMotif});
-      }else{
-        existing++;
-      }
-    }else{
-      creates.push({ds,motifId:desiredMotif});
-    }
-
-    d.setDate(d.getDate()+1);
-  }
-
-  return {creates,updates,locked,existing,preservedHolidays};
+  const rid=Number($("initCalendarPerson")?.value||0),range=initCalendarDateRange(),action=$("initCalendarAction")?.value||"initialize",recurring=action.startsWith("recurring-");
+  const weekdayMotif=Number($("initWeekdayMotif")?.value||0),weekendMotif=Number($("initWeekendMotif")?.value||0),recurringMotif=Number($("initRecurringMotif")?.value||0),days=recurringCalendarDays(),preserveF=$("initPreserveHolidays")?.checked!==false;
+  if(!rid||!range||(recurring?(!recurringMotif||!days.size):(!weekdayMotif||!weekendMotif)))return {creates:[],updates:[],locked:0,existing:0,preservedHolidays:0,matched:0};
+  const byDate=new Map(S.presence.filter(r=>r.Ressource===rid).map(r=>[iso(r.Date),r])),creates=[],updates=[];let locked=0,existing=0,preservedHolidays=0,matched=0;
+  let d=new Date(range.from+"T12:00:00"),finish=new Date(range.to+"T12:00:00");
+  while(d<=finish){const ds=iso(d);if(recurring&&!days.has(d.getDay())){d.setDate(d.getDate()+1);continue}matched++;const old=byDate.get(ds),desiredMotif=recurring?recurringMotif:([0,6].includes(d.getDay())?weekendMotif:weekdayMotif);if(isDateLocked(ds))locked++;else if(old){const oldMotif=motif(old.Motif);if(!recurring&&preserveF&&oldMotif?.Code==="F")preservedHolidays++;else if(action==="upsert"||action==="recurring-upsert"){if(Number(old.Motif)!==desiredMotif)updates.push({record:old,ds,motifId:desiredMotif});else existing++}else existing++}else creates.push({ds,motifId:desiredMotif});d.setDate(d.getDate()+1)}
+  return {creates,updates,locked,existing,preservedHolidays,matched};
 }
 function updateInitCalendarPreview(){
   const p=initCalendarPlan();
@@ -1073,7 +1036,7 @@ function updateInitCalendarPreview(){
   const btn=$("initCalendarBtn");
   if(btn)btn.disabled=(p.creates.length+p.updates.length)===0;
 }
-function openInitCalendarModal(){renderInitCalendarPeople();renderInitCalendarMotifs();const now=new Date();if($("initCalendarYear"))$("initCalendarYear").value=String(now.getFullYear());if($("initCalendarAction"))$("initCalendarAction").value="initialize";if($("initCalendarMode"))$("initCalendarMode").value="year";if($("initPreserveHolidays"))$("initPreserveHolidays").checked=true;updateInitCalendarMode();const m=$("initCalendarModal");if(m){m.hidden=false;m.style.display="flex";document.body.classList.add("modal-open")}}
+function openInitCalendarModal(){renderInitCalendarPeople();renderInitCalendarMotifs();const now=new Date();if($("initCalendarYear"))$("initCalendarYear").value=String(now.getFullYear());if($("initCalendarAction"))$("initCalendarAction").value="initialize";if($("initCalendarMode"))$("initCalendarMode").value="year";if($("initPreserveHolidays"))$("initPreserveHolidays").checked=true;updateInitCalendarAction();const m=$("initCalendarModal");if(m){m.hidden=false;m.style.display="flex";document.body.classList.add("modal-open")}}
 function closeInitCalendarModal(){const m=$("initCalendarModal");if(m){m.hidden=true;m.style.display="none";document.body.classList.remove("modal-open")}}
 async function initializeCalendar(){
   const rid=Number($("initCalendarPerson")?.value||0);
@@ -1085,7 +1048,7 @@ async function initializeCalendar(){
 
   const pe=resource(rid);
   const action=$("initCalendarAction")?.value||"initialize";
-  const modeLabel=action==="upsert"?"Modifier en masse":"Initialiser";
+  const modeLabel=action==="upsert"?"Modifier en masse":action==="recurring-create"?"Ajouter le motif récurrent (création uniquement)":action==="recurring-upsert"?"Ajouter le motif récurrent (création / modification)":"Initialiser";
 
   const message=
     `${modeLabel} le feuille de présence de « ${pe?.nom||"la ressource"} » ?\n\n`+
@@ -1108,7 +1071,7 @@ async function initializeCalendar(){
         Date:epoch(x.ds),
         Motif:Number(x.motifId),
         Statut:"Prévisionnel",
-        Commentaire:"Initialisation / modification calendrier",
+        Commentaire:action.startsWith("recurring-")?"Motif récurrent calendrier":"Initialisation / modification calendrier",
         Source:"Widget"
       }
     }));
@@ -1118,7 +1081,7 @@ async function initializeCalendar(){
       fields:{
         Motif:Number(x.motifId),
         Statut:"Prévisionnel",
-        Commentaire:"Modification en masse calendrier",
+        Commentaire:action.startsWith("recurring-")?"Modification motif récurrent calendrier":"Modification en masse calendrier",
         Source:"Widget"
       }
     }));
@@ -1477,7 +1440,9 @@ if($("initWeekdayMotif"))$("initWeekdayMotif").onchange=updateInitCalendarPrevie
 if($("initWeekendMotif"))$("initWeekendMotif").onchange=updateInitCalendarPreview;
 if($("initCalendarBtn"))$("initCalendarBtn").onclick=()=>initializeCalendar().catch(e=>notify(e.message||e));
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("initCalendarModal")?.hidden)closeInitCalendarModal();});
-if($("initCalendarAction"))$("initCalendarAction").onchange=updateInitCalendarPreview;
+if($("initCalendarAction"))$("initCalendarAction").onchange=updateInitCalendarAction;
+if($("initRecurringMotif"))$("initRecurringMotif").onchange=updateInitCalendarPreview;
+document.querySelectorAll(".init-recurring-day").forEach(x=>x.onchange=updateInitCalendarPreview);
 if($("initPreserveHolidays"))$("initPreserveHolidays").onchange=updateInitCalendarPreview;
 if($("cockpitVersion"))$("cockpitVersion").textContent=`Cockpit RH · ${APP_VERSION}`;
 grist.ready({requiredAccess:"full"});window.PmoPresence?.start({widget:"COCKPIT_RH",version:APP_VERSION,getContext:presenceContext});load().catch(e=>notify(e.message||e));
