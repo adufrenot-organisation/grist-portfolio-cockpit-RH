@@ -549,3 +549,10 @@ Correction du sélecteur de motifs : la grille est totalement retirée du layout
 - tout motif actif est immédiatement proposé pour la saisie de présence, la visibilité de grille et le sélecteur de rapport ;
 - les motifs désactivés ne sont plus proposés pour de nouvelles saisies mais restent disponibles dans les rapports lorsqu’ils existent dans l’historique ;
 - les calculs Présence/Absence utilisent les coefficients `Presence_Equivalent` et `Absence_Equivalent`, ce qui permet aux nouveaux motifs de participer aux indicateurs sans modification du code.
+
+
+## V6.46 — gouvernance des motifs RH
+- retrait de la création de motifs depuis le Cockpit RH ;
+- la création et le paramétrage des motifs restent exclusivement dans le module Administration RH ;
+- le Cockpit continue de charger dynamiquement `Motifs_RH` pour la feuille de présence, la grille et les rapports ;
+- les motifs désactivés restent exploitables pour l’historique mais ne sont pas proposés pour de nouvelles saisies.
