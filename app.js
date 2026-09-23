@@ -1,4 +1,4 @@
-const APP_VERSION="V6.50";
+const APP_VERSION="V6.51";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH",managers:"Managers_Equipes",requests:"Demandes_RH"};
 
 function gristRows(data, tableName="") {
@@ -1189,7 +1189,10 @@ async function loadRequestsModule(){
     S.requestsTablesReady=tables.includes(T.managers)&&tables.includes(T.requests);
     if(!S.requestsTablesReady){
       S.managers=[];S.requests=[];S.managedTeamIds=new Set();
-      S.requestsAllowed=!!S.userScope?.isAdmin;
+      // L'écran d'initialisation doit rester accessible avant la création des tables.
+      // Les administrateurs et les profils PMO/Manager peuvent donc voir le module,
+      // puis l'administrateur peut créer les tables depuis cet écran.
+      S.requestsAllowed=!!S.userScope?.isAdmin||roleAllowsRequests();
       updateRequestsNav();
       return
     }
@@ -1214,7 +1217,8 @@ async function loadRequestsModule(){
 function updateRequestsNav(){
   const b=document.querySelector('.nav-item[data-view="demandesRH"]');
   if(!b)return;
-  b.hidden=!S.requestsAllowed&&!S.userScope?.isAdmin;
+  const canBootstrap=!S.requestsTablesReady&&(!!S.userScope?.isAdmin||roleAllowsRequests());
+  b.hidden=!(S.requestsAllowed||canBootstrap);
 }
 function requestsInScope(){
   if(S.userScope?.isAdmin)return S.requests||[];
@@ -1542,7 +1546,7 @@ function sensitiveViewAllowed(view){
   if(view==="alertes")return !!S.alertsAllowed;
   if(view==="alertesAnnuelles")return !!S.annualAlertsAllowed;
   if(view==="logs")return !!S.logsAllowed;
-  if(view==="demandesRH")return !!S.requestsAllowed;
+  if(view==="demandesRH")return !!S.requestsAllowed||(!S.requestsTablesReady&&(!!S.userScope?.isAdmin||roleAllowsRequests()));
   return true
 }
 function nav(){
@@ -1575,7 +1579,7 @@ function nav(){
     $("subtitle").textContent=sensitive&&!allowed?"Droit requis pour cet onglet":t[requested][1];
     if(requested==="saisie")renderMassCalendar();
     if(requested==="logs"&&S.logsAllowed)renderAccessDiagnostics();
-    if(requested==="demandesRH"&&S.requestsAllowed)renderRequestsModule();
+    if(requested==="demandesRH")renderRequestsModule();
     if(requested==="alertesAnnuelles"&&S.annualAlertsAllowed)renderAnnualAlerts();if(requested==="alertes"&&S.alertsAllowed)list($("allAlerts"),S.alerts||[])
   })
 }

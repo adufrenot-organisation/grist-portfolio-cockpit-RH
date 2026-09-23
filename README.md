@@ -587,3 +587,8 @@ Correction du sélecteur de motifs : la grille est totalement retirée du layout
 - Le manager ne voit que les demandes des équipes qu'il gère.
 - Actions Valider / Refuser avec date et manager de décision.
 - Cette version prépare l'étape suivante : génération automatique dans `Presences` après validation.
+
+## V6.51 — visibilité initiale de Demandes RH
+- Correction du bootstrap : l'onglet Demandes RH reste visible aux Admin/PMO/Manager autorisés même si les tables n'existent pas encore.
+- L'écran d'initialisation peut donc afficher le bouton `Créer les tables`.
+- Une fois les tables créées, le périmètre manager continue d'être déterminé par `Managers_Equipes`.
