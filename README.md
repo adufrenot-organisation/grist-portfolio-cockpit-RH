@@ -1,6 +1,6 @@
 # RH Capacité — Cockpit V3
 
-Nouvelle saisie de masse calendrier intégrée au module Cockpit.
+Nouvelle saisies de masse calendrier intégrée au module Cockpit.
 
 Fonctions : filtre équipe, ressources actives, mois glissant, motif sélectionné en amont, saisie multi-cellules, statut et commentaire communs, sauvegarde en masse dans `Presences`.
 
