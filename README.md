@@ -621,3 +621,10 @@ Correction du sélecteur de motifs : la grille est totalement retirée du layout
 - Valider / Refuser revérifie le périmètre au clic.
 - Une demande déjà traitée ne peut pas être retraitée.
 - Aucune écriture automatique dans Presences à ce stade.
+
+
+## V6.56 — Validation et présences
+
+Transition EN_ATTENTE → VALIDEE uniquement : application du motif local Motifs_RH (référence et Code conservés) à chaque jour inclusif de la demande, pour le demandeur. Contrôle des verrous avant toute écriture ; si un jour est verrouillé, validation refusée sans changement. Les présences existantes sont modifiées, les absentes créées. Demande et présences sont envoyées dans une unique action groupée Grist. Refus : aucune présence modifiée.
+
+**Limites :** les dates de demande sont des dates entières (pas de demi-journées dans le schéma actuel) ; les jours de week-end sont inclus dans la plage. Pour une protection contre les écritures concurrentes hors widget, des ACL/contrôles serveur restent nécessaires.

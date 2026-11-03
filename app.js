@@ -1,4 +1,4 @@
-const APP_VERSION="V6.55";
+const APP_VERSION="V6.56";
 const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH",managers:"Managers_Equipes",requests:"Demandes_RH"};
 
 function gristRows(data, tableName="") {
@@ -1259,6 +1259,37 @@ function renderRequestsModule(){
   body.querySelectorAll(".req-approve").forEach(b=>b.onclick=()=>decideRequest(Number(b.dataset.id),"VALIDEE"));
   body.querySelectorAll(".req-refuse").forEach(b=>b.onclick=()=>decideRequest(Number(b.dataset.id),"REFUSEE"));
 }
+// V6.56 : validation et présences dans une seule action Grist (tout ou rien).
+async function approvedPresenceActions(r, me){
+  // Relecture des verrous et des présences au moment de la décision.
+  const tables=await grist.docApi.listTables();
+  if(!tables.includes(T.locks))throw Error("Table des verrous absente : validation bloquée.");
+  const [locksRaw,presRaw,motifsRaw]=await Promise.all([
+    grist.docApi.fetchTable(T.locks),grist.docApi.fetchTable(T.presence),grist.docApi.fetchTable(T.motifs)
+  ]);
+  const locks=gristRows(locksRaw,T.locks).filter(x=>x.Verrouille!==false);
+  const pres=gristRows(presRaw,T.presence);
+  const motifs=gristRows(motifsRaw,T.motifs);
+  const rid=gristRefId(r.Demandeur),mid=gristRefId(r.Motif);
+  const m=motifs.find(x=>Number(x.id)===mid);
+  if(!rid||!m||!String(m.Code||"").trim())throw Error("Demandeur ou code motif introuvable : validation bloquée.");
+  const from=requestDate(r.Date_Debut),to=requestDate(r.Date_Fin);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)||to<from)throw Error("Dates de demande invalides.");
+  const days=[];let d=new Date(from+"T12:00:00");
+  for(let n=0;n<3667&&iso(d)<=to;n++,d.setDate(d.getDate()+1))days.push(iso(d));
+  if(!days.length||days.at(-1)!==to)throw Error("Plage de dates trop longue ou invalide.");
+  const blocked=days.filter(ds=>locks.some(l=>{const a=requestDate(l.Date_Debut),b=requestDate(l.Date_Fin);return a&&b&&a<=ds&&ds<=b}));
+  if(blocked.length)throw Error("Validation impossible : jour(s) verrouillé(s) : "+blocked.join(", "));
+  const actions=[];
+  for(const ds of days){
+    const matches=pres.filter(x=>gristRefId(x.Ressource)===rid&&requestDate(x.Date)===ds);
+    if(matches.length>1)throw Error("Présences en doublon pour "+ds+" : corriger avant validation.");
+    const fields={Ressource:rid,Date:epoch(ds),Motif:mid,Statut:"Prévisionnel",Source:"Demande RH"};
+    if(matches.length)actions.push(["UpdateRecord",T.presence,matches[0].id,{Motif:mid,Statut:"Prévisionnel",Source:"Demande RH"}]);
+    else actions.push(["AddRecord",T.presence,null,fields]);
+  }
+  return actions;
+}
 async function decideRequest(id,status){
   const r=S.requests.find(x=>Number(x.id)===Number(id));if(!r)return;
   const me=currentTeamRecord(),profil=teamProfil(me);
@@ -1267,8 +1298,15 @@ async function decideRequest(id,status){
   if(requestStatus(r.Statut)!=="EN_ATTENTE")return notify("Cette demande a déjà été traitée.");
   const label=status==="VALIDEE"?"valider":"refuser";
   if(!window.confirm(`${label[0].toUpperCase()+label.slice(1)} la demande ${r.Reference||("#"+id)} ?`))return;
-  await grist.getTable(T.requests).update({id,fields:{Statut:status,Manager:me?.id||null,Date_Decision:Math.floor(Date.now()/1000)}});
-  await loadRequestsModule();renderRequestsModule();notify(status==="VALIDEE"?"Demande validée":"Demande refusée")
+  try{
+    const fresh=gristRows(await grist.docApi.fetchTable(T.requests),T.requests).find(x=>Number(x.id)===Number(id));
+    if(!fresh||requestStatus(fresh.Statut)!=="EN_ATTENTE")throw Error("La demande n'est plus en attente.");
+    const actions=status==="VALIDEE"?await approvedPresenceActions(fresh,me):[];
+    actions.push(["UpdateRecord",T.requests,id,{Statut:status,Manager:me?.id||null,Date_Decision:Math.floor(Date.now()/1000)}]);
+    await grist.docApi.applyUserActions(actions);
+    if(status==="VALIDEE")S.presence=gristRows(await grist.docApi.fetchTable(T.presence),T.presence);
+    await loadRequestsModule();renderRequestsModule();notify(status==="VALIDEE"?"Demande validée · présences mises à jour":"Demande refusée");
+  }catch(e){console.error("Validation RH",e);window.alert(e.message||String(e));}
 }
 async function createRequestsTables(){
   if(!S.userScope?.isAdmin)return notify("Création réservée à l’administrateur.");
