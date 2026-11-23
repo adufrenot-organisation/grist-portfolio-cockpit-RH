@@ -1016,3 +1016,8 @@ body.sidebar-collapsed .nav-lock{position:absolute;right:5px;top:5px;font-size:9
 .init-recurring-frequency-grid{display:grid;grid-template-columns:minmax(220px,2fr) minmax(120px,1fr) minmax(160px,1fr);gap:10px;align-items:end}.init-recurring-frequency-grid label{margin:0}.init-recurring-frequency-grid [hidden]{display:none}@media(max-width:760px){.init-recurring-frequency-grid{grid-template-columns:1fr}}
 
 .request-actions{display:flex;gap:6px;white-space:nowrap}.request-actions .btn{padding:7px 10px}.nav-item[hidden]{display:none!important}
+
+/* V6.58 — auto-validation temporisée */
+.auto-validation-badge{display:block;margin-top:5px;width:max-content;background:#fff4cf;border-color:#f0c65a;color:#6f5100;font-size:11px}
+.request-actions{white-space:nowrap}.request-actions .btn+ .btn{margin-left:6px}
+.auto-validation-admin{margin-top:16px}.auto-validation-settings{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.auto-validation-settings label{display:flex;flex-direction:column;gap:6px;font-weight:700}.auto-validation-settings input{min-width:180px;padding:9px 10px;border:1px solid #cbd5e1;border-radius:8px}.auto-validation-settings small{flex-basis:100%;color:#64748b}

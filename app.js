@@ -1,5 +1,5 @@
-const APP_VERSION="V6.56";
-const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH",managers:"Managers_Equipes",requests:"Demandes_RH"};
+const APP_VERSION="V6.58";
+const T={team:"Team",teams:"Team_ref",motifs:"Motifs_RH",presence:"Presences",alerts:"Parametres_Alertes",locks:"Verrous_Periodes_RH",managers:"Managers_Equipes",requests:"Demandes_RH",requestParams:"PARAM_DEMANDES_RH"};
 
 function gristRows(data, tableName="") {
   if (Array.isArray(data)) return data;
@@ -19,7 +19,7 @@ function gristRows(data, tableName="") {
   }
   return rows;
 }
-const S={team:[],teams:[],motifs:[],presence:[],params:[],userScope:{ready:false,isAdmin:false,email:"",teamIds:new Set()},visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAllowed:false,annualAlertsAllowed:false,logsAllowed:false,alertsAdminChecked:false,alertAccessReason:"",accessDiagnostics:{},halfMonth:(new Date().getDate()<=15?1:2),managers:[],requests:[],requestsTablesReady:false,requestsAllowed:false,managedTeamIds:new Set()};
+const S={team:[],teams:[],motifs:[],presence:[],params:[],userScope:{ready:false,isAdmin:false,email:"",teamIds:new Set()},visible:new Set(),alerts:[],month:new Date(),selectedMotif:null,changes:new Map(),selectedCells:new Set(),csvAnalysis:null,excelWorkbook:null,hiddenGridMotifs:new Set(),locks:[],locksTableAvailable:false,accessLevel:"full",alertsAdmin:false,alertsAllowed:false,annualAlertsAllowed:false,logsAllowed:false,alertsAdminChecked:false,alertAccessReason:"",accessDiagnostics:{},halfMonth:(new Date().getDate()<=15?1:2),managers:[],requests:[],requestsTablesReady:false,requestsAllowed:false,managedTeamIds:new Set(),requestParams:[],requestParamsReady:false};
 const $=id=>document.getElementById(id),num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d,esc=(s="")=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const date=v=>typeof v==="number"?new Date(v*1000):Array.isArray(v)&&v[0]==="D"?new Date(v[1]*1000):new Date(v);
 const iso=v=>{const d=date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
@@ -192,6 +192,7 @@ async function load(){
     await loadLocks();
     await initUserTeamScope();
     await loadRequestsModule();
+    await processAutoValidationRequests();
     render();
     renderRequestsModule();
     if (!S.team.length) notify("La table Team est vide : aucune ressource à afficher");
@@ -1193,8 +1194,13 @@ async function loadRequestsModule(){
       updateRequestsNav();
       return
     }
-    const [m,d]=await Promise.all([grist.docApi.fetchTable(T.managers),grist.docApi.fetchTable(T.requests)]);
-    S.managers=gristRows(m,T.managers);S.requests=gristRows(d,T.requests);
+    S.requestParamsReady=tables.includes(T.requestParams);
+    const [m,d,p]=await Promise.all([
+      grist.docApi.fetchTable(T.managers),
+      grist.docApi.fetchTable(T.requests),
+      S.requestParamsReady?grist.docApi.fetchTable(T.requestParams):Promise.resolve([])
+    ]);
+    S.managers=gristRows(m,T.managers);S.requests=gristRows(d,T.requests);S.requestParams=S.requestParamsReady?gristRows(p,T.requestParams):[];
     const me=currentTeamRecord(),meId=Number(me?.id||0),email=String(S.userScope?.email||"").toLowerCase();
     const managed=new Set();
     S.managers.filter(x=>x.Actif!==false).forEach(x=>{
@@ -1224,6 +1230,56 @@ function requestsInScope(){
   if(profil!=="MANAGER"&&profil!=="PMO")return [];
   return (S.requests||[]).filter(r=>S.managedTeamIds.has(Number(requestTeamId(r)||0)))
 }
+const AUTO_VALIDATION_DELAY_KEY="DELAI_AUTO_VALIDATION_SECONDES";
+const AUTO_VALIDATION_DEFAULT_SECONDS=15;
+function autoValidationDelaySeconds(){
+  const row=(S.requestParams||[]).find(x=>String(x.Cle||x.Code||"").trim().toUpperCase()===AUTO_VALIDATION_DELAY_KEY&&x.Actif!==false);
+  const raw=row?.Valeur??row?.Valeur_Numerique??row?.Secondes;
+  const n=Number(raw);
+  return Number.isFinite(n)?Math.max(0,Math.min(86400,Math.round(n))):AUTO_VALIDATION_DEFAULT_SECONDS;
+}
+function requestTimestampMs(v){
+  try{const d=date(v);const t=d.getTime();return Number.isFinite(t)?t:NaN}catch(_){return NaN}
+}
+function autoValidationDueAtMs(r){
+  const base=requestTimestampMs(r?.Date_Demande);
+  return (Number.isFinite(base)?base:Date.now())+autoValidationDelaySeconds()*1000;
+}
+function autoValidationRemainingSeconds(r){return Math.max(0,Math.ceil((autoValidationDueAtMs(r)-Date.now())/1000))}
+function autoValidationDue(r){return requestAutoValidation(r)&&autoValidationRemainingSeconds(r)<=0}
+function autoValidationBadge(r){
+  if(!requestAutoValidation(r))return "";
+  const left=autoValidationRemainingSeconds(r);
+  return `<span class="badge auto-validation-badge" title="Cette demande sera auto-validée si elle est toujours en attente">Auto-validation · ${left>0?left+" s":"imminente"}</span>`;
+}
+function renderAutoValidationAdmin(){
+  const card=$("autoValidationAdminCard");if(!card)return;
+  card.hidden=!S.userScope?.isAdmin;
+  if(card.hidden)return;
+  const input=$("autoValidationDelaySeconds");if(input)input.value=String(autoValidationDelaySeconds());
+  const state=$("autoValidationParamState");if(state)state.textContent=S.requestParamsReady?`Paramètre ${AUTO_VALIDATION_DELAY_KEY}`:"La table PARAM_DEMANDES_RH sera créée au premier enregistrement.";
+}
+async function saveAutoValidationDelay(){
+  if(!S.userScope?.isAdmin)return notify("Paramétrage réservé à l’administrateur.");
+  const input=$("autoValidationDelaySeconds"),n=Number(input?.value);
+  if(!Number.isFinite(n)||n<0||n>86400)return notify("Délai attendu entre 0 et 86400 secondes.");
+  const seconds=Math.round(n);
+  try{
+    let tables=await grist.docApi.listTables();
+    if(!tables.includes(T.requestParams)){
+      await grist.docApi.applyUserActions([["AddTable",T.requestParams,[
+        {id:"Cle",type:"Text"},{id:"Valeur",type:"Text"},{id:"Actif",type:"Bool"},{id:"Commentaire",type:"Text"}
+      ]]]);
+    }
+    const raw=gristRows(await grist.docApi.fetchTable(T.requestParams),T.requestParams);
+    const row=raw.find(x=>String(x.Cle||"").trim().toUpperCase()===AUTO_VALIDATION_DELAY_KEY);
+    const fields={Cle:AUTO_VALIDATION_DELAY_KEY,Valeur:String(seconds),Actif:true,Commentaire:"Délai avant auto-validation d’une demande EN_ATTENTE (secondes)"};
+    if(row)await grist.getTable(T.requestParams).update({id:row.id,fields});
+    else await grist.getTable(T.requestParams).create({fields});
+    await loadRequestsModule();renderRequestsModule();notify(`Délai d’auto-validation : ${seconds} s`);
+  }catch(e){console.error("Paramétrage auto-validation",e);notify(e.message||String(e))}
+}
+
 function renderRequestsModule(){
   const root=$("demandesRH");if(!root)return;
   const setup=$("requestsSetup"),content=$("requestsContent"),denied=$("requestsDenied");
@@ -1251,13 +1307,14 @@ function renderRequestsModule(){
       <td>${esc(team?.Libelle||team?.Code||"—")}</td>
       <td>${esc(r.Type||"CONGE")}</td>
       <td>${esc(requestDate(r.Date_Debut))}${requestDate(r.Date_Fin)&&requestDate(r.Date_Fin)!==requestDate(r.Date_Debut)?" → "+esc(requestDate(r.Date_Fin)):""}</td>
-      <td><span class="badge">${esc(st.replaceAll("_"," "))}</span></td>
+      <td><span class="badge">${esc(st.replaceAll("_"," "))}</span>${can?autoValidationBadge(r):""}</td>
       <td>${esc(r.Commentaire_Demandeur||"")}</td>
-      <td class="request-actions">${can?`<button class="btn primary req-approve" data-id="${r.id}">Valider</button><button class="btn secondary req-refuse" data-id="${r.id}">Refuser</button>`:""}</td>
+      <td class="request-actions">${can?`${requestAutoValidation(r)?`<button class="btn primary req-approve" data-id="${r.id}">Valider maintenant</button>`:`<button class="btn primary req-approve" data-id="${r.id}">Valider</button>`}<button class="btn secondary req-refuse" data-id="${r.id}">Refuser</button>`:""}</td>
     </tr>`
   }).join(""):'<tr><td colspan="8" class="empty">Aucune demande pour les équipes que vous gérez.</td></tr>';
   body.querySelectorAll(".req-approve").forEach(b=>b.onclick=()=>decideRequest(Number(b.dataset.id),"VALIDEE"));
   body.querySelectorAll(".req-refuse").forEach(b=>b.onclick=()=>decideRequest(Number(b.dataset.id),"REFUSEE"));
+  renderAutoValidationAdmin();
 }
 // V6.56 : validation et présences dans une seule action Grist (tout ou rien).
 async function approvedPresenceActions(r, me){
@@ -1290,6 +1347,67 @@ async function approvedPresenceActions(r, me){
   }
   return actions;
 }
+const AUTO_VALIDATION_POLL_MS=5000;
+let autoValidationBusy=false;
+
+function requestAutoValidation(r){
+  const v=r?.AutoValidation;
+  return v===true||v===1||String(v??"").trim().toLowerCase()==="true";
+}
+function autoValidationInScope(r){
+  if(S.userScope?.isAdmin)return true;
+  const me=currentTeamRecord(),profil=teamProfil(me);
+  return (profil==="MANAGER"||profil==="PMO")&&S.managedTeamIds.has(Number(requestTeamId(r)||0));
+}
+async function autoValidateRequest(r){
+  const id=Number(r?.id||0);
+  if(!id||!requestAutoValidation(r)||requestStatus(r.Statut)!=="EN_ATTENTE"||!autoValidationInScope(r))return false;
+  const fresh=gristRows(await grist.docApi.fetchTable(T.requests),T.requests).find(x=>Number(x.id)===id);
+  if(!fresh||!requestAutoValidation(fresh)||requestStatus(fresh.Statut)!=="EN_ATTENTE"||!autoValidationInScope(fresh))return false;
+  const actions=await approvedPresenceActions(fresh,null);
+  const previous=String(fresh.Commentaire_Manager||"").trim();
+  const autoComment="Auto-validation automatique";
+  actions.push(["UpdateRecord",T.requests,id,{
+    Statut:"VALIDEE",
+    Manager:null,
+    Date_Decision:Math.floor(Date.now()/1000),
+    Commentaire_Manager:previous?`${previous} · ${autoComment}`:autoComment
+  }]);
+  await grist.docApi.applyUserActions(actions);
+  console.info(`[AUTO-VALIDATION] Demande ${fresh.Reference||("#"+id)} validée automatiquement.`);
+  return true;
+}
+async function processAutoValidationRequests(){
+  if(autoValidationBusy||!S.requestsTablesReady||!S.requestsAllowed)return 0;
+  autoValidationBusy=true;
+  let done=0;
+  try{
+    const candidates=(S.requests||[]).filter(r=>requestStatus(r.Statut)==="EN_ATTENTE"&&requestAutoValidation(r)&&autoValidationDue(r)&&autoValidationInScope(r));
+    for(const r of candidates){
+      try{if(await autoValidateRequest(r))done++}
+      catch(e){
+        // On ne force jamais une auto-validation : la demande reste EN_ATTENTE.
+        console.warn(`[AUTO-VALIDATION] Demande ${r.Reference||("#"+r.id)} laissée EN_ATTENTE :`,e?.message||e);
+      }
+    }
+    if(done){
+      S.presence=gristRows(await grist.docApi.fetchTable(T.presence),T.presence);
+      await loadRequestsModule();
+      renderRequestsModule();
+      render();
+      notify(`${done} demande(s) auto-validée(s)`);
+    }
+    return done;
+  }finally{autoValidationBusy=false}
+}
+async function pollAutoValidation(){
+  try{
+    if(autoValidationBusy)return;
+    await loadRequestsModule();
+    await processAutoValidationRequests();
+  }catch(e){console.warn("[AUTO-VALIDATION] Contrôle périodique impossible",e)}
+}
+
 async function decideRequest(id,status){
   const r=S.requests.find(x=>Number(x.id)===Number(id));if(!r)return;
   const me=currentTeamRecord(),profil=teamProfil(me);
@@ -1320,7 +1438,10 @@ async function createRequestsTables(){
       {id:"Reference",type:"Text"},{id:"Demandeur",type:"Ref:Team"},{id:"Equipe",type:"Ref:Team_ref"},{id:"Type",type:"Text"},
       {id:"Date_Debut",type:"Date"},{id:"Date_Fin",type:"Date"},{id:"Motif",type:"Ref:Motifs_RH"},{id:"Statut",type:"Text"},
       {id:"Manager",type:"Ref:Team"},{id:"Commentaire_Demandeur",type:"Text"},{id:"Commentaire_Manager",type:"Text"},
-      {id:"Date_Demande",type:"DateTime"},{id:"Date_Decision",type:"DateTime"},{id:"UUID_Demande",type:"Text"}
+      {id:"Date_Demande",type:"DateTime"},{id:"Date_Decision",type:"DateTime"},{id:"UUID_Demande",type:"Text"},{id:"AutoValidation",type:"Bool"}
+    ]]);
+    if(!tables.includes(T.requestParams))actions.push(["AddTable",T.requestParams,[
+      {id:"Cle",type:"Text"},{id:"Valeur",type:"Text"},{id:"Actif",type:"Bool"},{id:"Commentaire",type:"Text"}
     ]]);
     if(actions.length)await grist.docApi.applyUserActions(actions);
     await loadRequestsModule();renderRequestsModule();notify("Tables Demandes RH créées")
@@ -1623,7 +1744,7 @@ function nav(){
     if(requested==="alertesAnnuelles"&&S.annualAlertsAllowed)renderAnnualAlerts();if(requested==="alertes"&&S.alertsAllowed)list($("allAlerts"),S.alerts||[])
   })
 }
-defaults();initSidebar();nav();if($("createRequestsTables"))$("createRequestsTables").onclick=()=>createRequestsTables();updateSensitiveNavState();initReportMotifsModal();checkSensitiveAlertsAccess();if($("refreshAccessDiagnostic"))$("refreshAccessDiagnostic").onclick=()=>{S.alertsAdminChecked=false;if($("accessDiagnostic"))$("accessDiagnostic").textContent="Contrôle en cours…";checkSensitiveAlertsAccess()};if($("annualAlertYear"))$("annualAlertYear").onchange=renderAnnualAlerts;["from","to","person"].forEach(id=>$(id).onchange=pilotage);if($("openReportMotifs"))$("openReportMotifs").onclick=openReportMotifs;if($("closeReportMotifs"))$("closeReportMotifs").onclick=closeReportMotifs;if($("applyReportMotifs"))$("applyReportMotifs").onclick=closeReportMotifs;if($("reportMotifsAll"))$("reportMotifsAll").onclick=()=>setAllReportMotifs(true);if($("reportMotifsNone"))$("reportMotifsNone").onclick=()=>setAllReportMotifs(false);if($("printHtmlReport"))$("printHtmlReport").onclick=generateHtmlReport;if($("exportHtmlReportDirect"))$("exportHtmlReportDirect").onclick=exportDynamicHtmlReport;if($("closeHtmlReport"))$("closeHtmlReport").onclick=closeHtmlReport;if($("cancelHtmlReport"))$("cancelHtmlReport").onclick=closeHtmlReport;if($("printHtmlReportFrame"))$("printHtmlReportFrame").onclick=printHtmlReportFrame;if($("exportHtmlReport"))$("exportHtmlReport").onclick=()=>exportDynamicHtmlReport(true);if($("previewReconcile"))$("previewReconcile").onclick=previewReconcile;if($("reconcileSource"))$("reconcileSource").onchange=previewReconcile;if($("reconcileTarget"))$("reconcileTarget").onchange=previewReconcile;if($("runReconcile"))$("runReconcile").onclick=()=>runReconcile().catch(e=>notify(e.message||e));$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
+defaults();initSidebar();nav();if($("createRequestsTables"))$("createRequestsTables").onclick=()=>createRequestsTables();if($("saveAutoValidationDelay"))$("saveAutoValidationDelay").onclick=()=>saveAutoValidationDelay();updateSensitiveNavState();initReportMotifsModal();checkSensitiveAlertsAccess();if($("refreshAccessDiagnostic"))$("refreshAccessDiagnostic").onclick=()=>{S.alertsAdminChecked=false;if($("accessDiagnostic"))$("accessDiagnostic").textContent="Contrôle en cours…";checkSensitiveAlertsAccess()};if($("annualAlertYear"))$("annualAlertYear").onchange=renderAnnualAlerts;["from","to","person"].forEach(id=>$(id).onchange=pilotage);if($("openReportMotifs"))$("openReportMotifs").onclick=openReportMotifs;if($("closeReportMotifs"))$("closeReportMotifs").onclick=closeReportMotifs;if($("applyReportMotifs"))$("applyReportMotifs").onclick=closeReportMotifs;if($("reportMotifsAll"))$("reportMotifsAll").onclick=()=>setAllReportMotifs(true);if($("reportMotifsNone"))$("reportMotifsNone").onclick=()=>setAllReportMotifs(false);if($("printHtmlReport"))$("printHtmlReport").onclick=generateHtmlReport;if($("exportHtmlReportDirect"))$("exportHtmlReportDirect").onclick=exportDynamicHtmlReport;if($("closeHtmlReport"))$("closeHtmlReport").onclick=closeHtmlReport;if($("cancelHtmlReport"))$("cancelHtmlReport").onclick=closeHtmlReport;if($("printHtmlReportFrame"))$("printHtmlReportFrame").onclick=printHtmlReportFrame;if($("exportHtmlReport"))$("exportHtmlReport").onclick=()=>exportDynamicHtmlReport(true);if($("previewReconcile"))$("previewReconcile").onclick=previewReconcile;if($("reconcileSource"))$("reconcileSource").onchange=previewReconcile;if($("reconcileTarget"))$("reconcileTarget").onchange=previewReconcile;if($("runReconcile"))$("runReconcile").onclick=()=>runReconcile().catch(e=>notify(e.message||e));$("refresh").onclick=()=>refreshCockpit().catch(e=>{notify(e.message||e);console.error(e)});
 $("massTeam").onchange=renderMassCalendar;$("massActiveOnly").onchange=renderMassCalendar;$("prevMonth").onclick=previousHalfMonth;$("nextMonth").onclick=nextHalfMonth;$("selectAllVisible").onclick=selectAllVisible;$("clearSelection").onclick=clearSelection;$("deleteSelection").onclick=deleteSelection;$("saveMass").onclick=()=>saveMass().catch(e=>notify(e.message||e));
 $("analyzeCsv").onclick=()=>csvAnalyzeFile().catch(e=>{S.csvAnalysis=null;csvRender();$("csvMessage").textContent=e.message;notify(e.message)});$("importCsv").onclick=()=>csvImport().catch(e=>{$("importCsv").disabled=false;$("csvMessage").textContent=e.message;notify(e.message)});
 $("resetCsv").onclick=resetCsvImport;csvSetup();
@@ -1681,6 +1802,6 @@ if($("initRecurringOrdinal"))$("initRecurringOrdinal").onchange=updateInitCalend
 document.querySelectorAll(".init-recurring-day").forEach(x=>x.onchange=updateInitCalendarPreview);
 if($("initPreserveHolidays"))$("initPreserveHolidays").onchange=updateInitCalendarPreview;
 if($("cockpitVersion"))$("cockpitVersion").textContent=`Cockpit RH · ${APP_VERSION}`;
-grist.ready({requiredAccess:"full"});window.PmoPresence?.start({widget:"COCKPIT_RH",version:APP_VERSION,getContext:presenceContext});load().catch(e=>notify(e.message||e));
+grist.ready({requiredAccess:"full"});window.PmoPresence?.start({widget:"COCKPIT_RH",version:APP_VERSION,getContext:presenceContext});load().then(()=>setInterval(pollAutoValidation,AUTO_VALIDATION_POLL_MS)).catch(e=>notify(e.message||e));
 
 ["alertLevelFilter","alertSearch"].forEach(id=>{const el=$(id);if(el)el.addEventListener(id==="alertSearch"?"input":"change",()=>{if(S.alertsAllowed)list($("allAlerts"),S.alerts||[])})});
